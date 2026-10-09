@@ -58,7 +58,7 @@ those of `web/EDITOR_PROTOCOL.md`:
 | u21 | 3 × 7 bits, LSB first |
 | u35 | 5 × 7 bits, LSB first |
 | string | ASCII, ended by 0 |
-| pack7 | the bytes as one bit stream, LSB first, cut into 7-bit groups (`web/fm1ota.js` `pack7`, `unpack7`) |
+| pack7 | groups of up to 7 bytes, each preceded by a byte holding their top bits (bit j = byte j's bit 7), then the 7 low bits of each (`editor.c` `ed_pack7`; not the OTA updater's bit stream) |
 
 ### NoteSorcery commands (v11)
 
