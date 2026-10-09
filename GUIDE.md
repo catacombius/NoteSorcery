@@ -63,13 +63,22 @@ The 11 black keys are F#3, G#3, A#3, C#4, D#4, F#4, G#4, A#4, C#5, D#5, F#5. The
 
 ## 1. Install and update
 
-**From the browser (recommended).** Open the [installer page](https://isod89.github.io/sloop-fm1/) in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. The FM-1 restarts on the SLOOP logo.
+NoteSorcery has no hosted installer yet. SLOOP's installer page installs SLOOP, not NoteSorcery.
 
-**From the source folder (Windows).** Double-click **`INSTALL-SLOOP.bat`**: it builds the firmware and opens the installer at `http://localhost:8766/webapp/installer/`. Keep the black window open until the install is done. **`OPEN-EDITOR.bat`** opens the web editor.
+**From the browser (recommended).** Build the package (`./build.sh`, see [BUILDING.md](BUILDING.md)) or take the `.fwsc` of a release, then make a local copy of the installer and editor and serve it from `localhost` (Web MIDI needs a secure context):
 
-**Updating** keeps your projects, presets, samples, kits and settings. The installer checks the package (SHA-256), SLOOP's update loader checks it again (CRC) before it starts the new firmware, and a damaged package is refused before anything is written.
+```
+python3 web/make_site.py build/felucca.fwsc dev notesorcery-site
+cd notesorcery-site && python3 -m http.server 8000
+```
 
-**Before you go back to an older SLOOP** (2.3 or earlier), save a backup in the editor: 2.3 cannot read 2.4 projects (format FUN5).
+Open `http://localhost:8000/webapp/installer/` in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. The editor is at `http://localhost:8000/webapp/editor/`. The installer page still carries SLOOP's text; the package it installs is the one you gave `make_site.py`.
+
+**From the command line:** `pip3 install mido python-rtmidi`, then `python3 tools/fm1_install.py build/felucca.fwsc`.
+
+**Coming from SLOOP:** save a backup in SLOOP's editor first. NoteSorcery does not read SLOOP's projects, and its sample slots are smaller (see the README, *Differences from SLOOP*).
+
+**Updating** NoteSorcery keeps your projects, presets, samples, kits and settings. The installer checks the package (SHA-256), the update loader checks it again (CRC) before it starts the new firmware, and a damaged package is refused before anything is written.
 
 ---
 
