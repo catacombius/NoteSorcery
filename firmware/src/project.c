@@ -266,7 +266,7 @@ static int audio_quiet(void)
         for (i = 0; i < NDRUM; i++)
             if (drumst[p].v[i].active)
                 return 0;
-    return 1;
+    return !cm_busy;
 }
 
 static void autosave_tick(void)                /* main loop */

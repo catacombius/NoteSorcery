@@ -7,6 +7,8 @@ headers name.
 | File | What | Origin |
 |---|---|---|
 | `bass303.c`, `bass303.h` | the TB-303 voice of the ACID engine (`../eng_acid.c`) | X0X, ported from [schwung-303](https://github.com/charlesvestal/schwung-303): Open303 by Robin Schmidt (MIT, `LICENSES/MIT-Open303.txt`), the Devilfish ranges after jc303, the RAT drive after dm-Rat (GPL-3.0) |
+| `drum808.c`, `drum808.h` | the 808 CM drum kit (`../x0x_drums.c`, `../drums.c`) | X0X: 8W8's TR-808 engine (Charles Vestal and contributors, GPL-3.0; the rim shot is Yoshinosuke Horiuchi's sc808, MIT) |
+| `drum909.c`, `drum909.h`, `drum909_dsp.h` | the 909 CM drum kit | X0X: 9W9's TR-909 engine (Charles Vestal, GPL-3.0, grown out of Matthew Cieplak's ER-99, GPL-3.0). NoteSorcery leaves out the hi-hat and cymbal recordings (`tools/gen_x0x_tables.py` writes silent stand-ins): the 909 CM kit plays those on SLOOP's synthesised 909 |
 | `fastmath.h` | single-precision maths without libm | X0X |
 | `x0x_param.h` | the parameter descriptors bass303 uses | X0X |
 

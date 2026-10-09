@@ -56,6 +56,8 @@ run "sequencer 2.0: no drift, ratchets, roll, erase / undo, ghost / hard, chords
 
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drumkit_test" tests/drumkit_test.c -lm
 run "synthesised drum kits: every kit x sound bounded, audible, finite, levels, cost" "$OUT/drumkit_test" "$OUT/drum-kits.wav" "$OUT/drum-kits.txt"
+$CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/drumcm_test" tests/drumcm_test.c -lm
+run "808 CM / 909 CM: X0X's circuit kits in one shared slot, the synthesised fallback, levels, cost" "$OUT/drumcm_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/userkit_test" tests/userkit_test.c -lm
 run "user drum kits (KIT USR1..USR3): a user slot's sounds on the drum lanes" "$OUT/userkit_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/dsyn_test" tests/dsyn_test.c -lm
@@ -146,6 +148,10 @@ run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/inst
 
 if command -v node >/dev/null 2>&1; then
     run "web pages: editor protocol, samples, packages, update protocol" node web/test_web.mjs
+    $CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/nsp1_export" tests/nsp1_export.c -lm &&
+        mkdir -p "$OUT/als" && "$OUT/nsp1_export" "$OUT/als" >/dev/null
+    run "Ableton export (web/als): the notes as the FM-1 plays them, sections as scenes, the .als and .mid" \
+        node web/als/test_als.mjs "$OUT/als"
 else
     echo "== skip web tests (no node)"
 fi

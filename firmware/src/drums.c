@@ -9,6 +9,7 @@
  * ISR. */
 #define NDRUM 6
 #include "drum_synth.c"       /* synthesised kits (DS_KITS) */
+#include "x0x_drums.c"          /* the 808 CM and 909 CM kits: X0X's circuit models */
 /* P_E0 was unused on the drum track: it holds the kit. 0..4: the GM sample kit and its four
  * treatments (as before: old projects keep their kit), 5..: the synthesised kits, then (2.4) USR1..USR4:
  * a user sample slot as a kit (the web editor's DRUM KIT: a sound per lane, zone lo..hi = the lane's note),
@@ -17,18 +18,22 @@
 #define DRUM_USR (DRUM_SAMPLED + DS_NKITS)
 #define DRUM_PAIR (DRUM_USR + SMP_USER_SLOTS)   /* USR3+4: one kit in two slots (the editor splits it), ~15 s */
 #define DRUM_SYN (DRUM_PAIR + 1u)                /* SLOOP 2.5: SYN1..SYN4, your synthesised kits (drum_synth.c dsu) */
-#define DRUM_KITS (DRUM_SYN + DSU_N)
+#define DRUM_CM808 (DRUM_SYN + DSU_N)             /* NoteSorcery: X0X's circuit-modelled TR-808 (x0x_drums.c) */
+#define DRUM_CM909 (DRUM_CM808 + 1u)              /* ... and TR-909 (its hats and cymbals: the synthesised 909's) */
+#define DRUM_KITS (DRUM_CM909 + 1u)
 static const char *const DRUM_KIT_NAMES[] = {"ACOUSTIC", "DEEP", "TIGHT", "BRIGHT", "DUST", DS_KIT_NAME_LIST,
                                              "USR1", "USR2", "USR3", "USR4", "USR3+4",
-                                             "SYN1", "SYN2", "SYN3", "SYN4"};
+                                             "SYN1", "SYN2", "SYN3", "SYN4", "808 CM", "909 CM"};
 static const char *const DRUM_KIT_STYLES[] = {"STUDIO", "SOFT", "PUNCHY", "BRIGHT", "DUSTY", DS_KIT_STYLE_LIST,
                                               "YOUR KIT", "YOUR KIT", "YOUR KIT", "YOUR KIT", "BIG KIT",
-                                              "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH"};
+                                              "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH",
+                                              "CIRCUIT", "CIRCUIT"};
 _Static_assert(sizeof(DRUM_KIT_NAMES) / sizeof(DRUM_KIT_NAMES[0]) == DRUM_KITS, "a name per kit");
 static uint32_t drum_kit_of(const track_t *t) { return (uint32_t)clamp(t->p[P_E0], 0, DRUM_KITS - 1); }
 static uint32_t drum_kit(void) { return drum_kit_of(TDRUM); }   /* the drum track the UI shows */
-#define DRUM_DEFAULT_KIT DRUM_SAMPLED   /* power-on: 808 */
-#define DRUM_DEFAULT_KIT_OF(d) ((d) ? DRUM_SAMPLED + 1u : DRUM_DEFAULT_KIT)   /* drum track 2: the next kit */
+#define DRUM_DEFAULT_KIT DRUM_SAMPLED   /* (the synthesised 808) */
+/* NoteSorcery power-on: drum track 1 the circuit 808, drum track 2 the Machinedrum-style EFM kit */
+#define DRUM_DEFAULT_KIT_OF(d) ((d) ? DRUM_SAMPLED + DS_KIT_MD_EFM : DRUM_CM808)
 
 typedef struct {
     voice_t v[NDRUM];
@@ -47,6 +52,76 @@ static volatile uint8_t drum_kick;              /* a kick was hit on a drum trac
 static int16_t drum_gm_set = -2;                 /* SMP_SETS index of "PERC" (GM map), -1 = none */
 static drums_t *drums_of(const track_t *t) { return &drumst[(uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK]; }
 #define drums (*drums_of(TDRUM))                 /* (the UI: the drum track it shows) */
+
+/* ---- NoteSorcery: the circuit-model kits. One slot (in the pool) holds an 808 or a 909; one drum track at a time
+ * owns it, and keeps it while its kit is 808 CM or 909 CM. The other drum track asking for a circuit kit then
+ * plays the synthesised kit of the same machine (DS_KITS "808" / "909"). Float: run only in the audio ISR. */
+enum { CM_NONE, CM_808, CM_909 };
+static union {
+    drum808_t d8;
+    drum909_t d9;
+} cm_slot __attribute__((section(".pool")));
+static uint8_t cm_kind;                          /* CM_*: what cm_slot holds */
+static uint8_t cm_owner = 0xFF;                  /* the drum track (0 .. NDRUMTRK-1) that owns it, 0xFF = none */
+static uint32_t cm_hits;                         /* hits the slot played (the host tests count them) */
+static volatile uint8_t cm_busy;                 /* the slot sounds (set by the ISR: the main loop runs no float) */
+/* float -> the synthesised voices' Q15-ish level, each kick about as loud as the synthesised kit's (drumcm_test) */
+#define CM808_GAIN 130000.0f
+#define CM909_GAIN 26000.0f
+static int is_cm_kit(uint32_t kit) { return kit == DRUM_CM808 || kit == DRUM_CM909; }
+static uint32_t drum_index(const track_t *t) { return (uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK; }
+static int cm_active(void) { return cm_kind == CM_808 ? drum808_active(&cm_slot.d8) : cm_kind == CM_909 ? drum909_active(&cm_slot.d9) : 0; }
+/* the slot for drum track d and kit: 1 = it is d's (taken now if free, or held by a track off its circuit kit) */
+static int cm_take(uint32_t d, uint32_t kit)
+{
+    uint32_t kind = kit == DRUM_CM808 ? CM_808 : CM_909;
+    if (cm_owner < NDRUMTRK && cm_owner != d && is_cm_kit(drum_kit_of(&trk[TRK_DRUM + cm_owner])))
+        return 0;                                /* the other drum track plays its circuit kit */
+    if (cm_owner != d || cm_kind != kind) {
+        if (kind == CM_808)
+            drum808_init(&cm_slot.d8);
+        else
+            drum909_init(&cm_slot.d9);
+        cm_kind = (uint8_t)kind;
+        cm_owner = (uint8_t)d;
+    }
+    return 1;
+}
+/* a lane (drum_synth.c ds_lane) -> the 808's track and its switch (-1: none), the 909's voice (-1: the synthesised
+ * 909 plays it: hats, cymbals, shaker, cowbell, clave) */
+static const int8_t CM8_TRK[DS_LANES][2] = {
+    {D8_BD, -1}, {D8_SD, -1}, {D8_CP, 0}, {D8_CH, -1}, {D8_OH, -1}, {D8_LT, 0}, {D8_HT, 0}, {D8_CY, -1},
+    {D8_CY, -1}, {D8_CP, 1}, {D8_MT, 1}, {D8_RS, 0}, {D8_CB, -1}, {D8_RS, 1}, {D8_BD, -1}, {D8_SD, -1}};
+static const int8_t CM9_VOICE[DS_LANES] = {DR_BD, DR_SD, DR_CP, -1, -1, DR_LT, DR_HT, -1,
+                                           -1, -1, DR_MT, DR_RS, -1, -1, DR_BD, DR_SD};
+/* a step's velocity -> the machines' trigger: 127 (an ACCENT step; >= 120 from MIDI) the accented hit, 100 the
+ * plain one */
+static float cm_vel(uint32_t vel)
+{
+    if (vel >= 120u)
+        return 1.0f;
+    return (float)vel * (D8_VEL_NORMAL / 100.0f);
+}
+/* a hit on the circuit kit; 0: not played here (the caller plays the synthesised kit) */
+static int cm_on(track_t *t, uint32_t note, uint32_t kit, uint32_t vel)
+{
+    int32_t semi;
+    uint32_t lane = ds_lane(note, &semi);
+    if (!cm_take(drum_index(t), kit))
+        return 0;
+    if (cm_kind == CM_808) {
+        int tr = CM8_TRK[lane][0], sw = CM8_TRK[lane][1];
+        if (sw >= 0)
+            drum808_set(&cm_slot.d8, tr, tr == D8_CP ? 4 : 3, sw);   /* (the "Sound" switch: tom / conga ...) */
+        drum808_trigger(&cm_slot.d8, tr, cm_vel(vel));
+    } else {
+        if (CM9_VOICE[lane] < 0)
+            return 0;
+        drum909_trigger(&cm_slot.d9, CM9_VOICE[lane], cm_vel(vel));
+    }
+    cm_hits++;
+    return 1;
+}
 
 static int32_t ds_buf[CTL];
 
@@ -243,6 +318,14 @@ static void drum_on(track_t *t, uint32_t note, uint32_t vel)
         D->hits |= (uint16_t)(1u << lane_of_note(note));
     if (note == 35u || note == 36u)
         drum_kick = 1;                             /* (DUCK) */
+    if (is_cm_kit(kit)) {                           /* 808 CM / 909 CM: the circuit, else the synthesised machine */
+        if (!cm_on(t, note, kit, vel))
+        {
+            const dkit_t *k = &DS_KITS[kit == DRUM_CM808 ? DS_KIT_808 : DS_KIT_909];
+            drum_synth_on(D, note, vel, kit, k->s, k->crush);
+        }
+        return;
+    }
     if (kit >= DRUM_SYN) {                          /* SYN1..SYN4: your synthesised kit */
         const dsu_kit_t *u = dsu_kit(kit - DRUM_SYN);
         drum_synth_on(D, note, vel, kit, u->s, u->crush);
@@ -332,6 +415,38 @@ static inline void drums_mix(track_t *t, int32_t *ml, int32_t *mr, int32_t *rev,
             mr[i] += D->tail;
         }
         D->tail -= D->tail / 16 + (D->tail > 0 ? 1 : D->tail < 0 ? -1 : 0);
+    }
+    if (cm_owner == drum_index(t)) {            /* the circuit kit, this track's */
+        static float cf[CTL], cr[CTL], cd[CTL];
+        uint32_t m = n < CTL ? n : CTL;
+        cm_busy = (uint8_t)cm_active();
+        if (!is_cm_kit(drum_kit_of(t)) && !cm_busy) {
+            cm_owner = 0xFF;                       /* off its circuit kit and silent: the slot is free */
+        } else {
+            for (i = 0; i < m; i++)
+                cf[i] = cr[i] = cd[i] = 0.0f;
+            if (cm_kind == CM_808)
+                drum808_render(&cm_slot.d8, cf, cr, cd, (int)m);
+            else
+                drum909_render(&cm_slot.d9, cf, cr, cd, (int)m);
+            for (i = 0; i < m; i++) {
+                float f = cf[i] * (cm_kind == CM_808 ? CM808_GAIN : CM909_GAIN);
+                int32_t s = f > 65535.0f ? 65535 : f < -65535.0f ? -65535 : (int32_t)f;   /* (+6 dB over full) */
+                s = mulq15(s, mulq15(lvl, 32767 - D->a0 - (((D->a1 - D->a0) * (int32_t)i) >> CTL_LOG2)));
+                if (s > pk || -s > pk)
+                    pk = s < 0 ? -s : s;
+                if (mono) {
+                    mono[i] += s;
+                    continue;
+                }
+                ml[i] += (s * gl) >> 12;
+                mr[i] += (s * gr) >> 12;
+                if (send)
+                    rev[i] += mulq15(s, send);
+                if (dsend)
+                    dly[i] += mulq15(s, dsend);
+            }
+        }
     }
     for (k = 0; k < NDRUM; k++) {               /* synthesised voices: render, then as below */
         voice_t *v = &D->v[k];

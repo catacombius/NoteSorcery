@@ -6,10 +6,12 @@ sample_render 130
 trio_render 341
 trio_pass 175
 slicer_track 828
-drums_mix 3534
+drums_mix 6858
 fm6_op_run 72
 fm6_op_fb 26
 fm6_render 363
 wave_render 180
 bass303_render 8524
+d8_render 169758
+d9_render 28539
 fm1_alnk0_irq 268
