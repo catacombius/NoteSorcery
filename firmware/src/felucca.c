@@ -183,6 +183,7 @@ static void ota_commit(const uint8_t *parm)
 #if FELUCCA_OTA
 #include "editor.c"          /* web editor SysEx (needs the OTA SysEx plumbing) */
 #endif
+#include "usb_sample.c"      /* NoteSorcery: USB SAMPLE, the host's audio into a sample slot (records with OTA + flash) */
 #if FELUCCA_CDC
 #include "console.c"
 #endif

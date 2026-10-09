@@ -6,7 +6,7 @@
   index.html                  redirect to the installer
   firmware/felucca-VER.fwsc   the package
   webapp/installer/index.html index_pkg.html with fm1pkg.js, fm1ota.js and the metadata inlined
-  webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt, als/: the Ableton export)
+  webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt, als/: the Ableton export, sf2.js: SoundFonts)
   src/                        not touched
 
   web/make_site.py build/felucca-X.Y.fwsc X.Y OUT_DIR [--beta]
@@ -75,7 +75,7 @@ def main(pkg, version, out):
     (inst / "index.html").write_text(html, encoding="utf-8")
     shutil.copy(pkg, fw / name)
     shutil.copy(HERE / "editor.html", ed / "index.html")
-    for f in ("fukiai.ttf", "FUKIAI-LICENSE.txt"):
+    for f in ("fukiai.ttf", "FUKIAI-LICENSE.txt", "sf2.js"):
         if (HERE / f).exists():
             shutil.copy(HERE / f, ed / f)
     (ed / "als").mkdir(exist_ok=True)                 # NoteSorcery: the Ableton export the editor imports

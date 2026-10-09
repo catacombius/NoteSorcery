@@ -109,6 +109,10 @@ $CC -DT_CDC=2 -DHALF_FRAMES=$HALF -o "$OUT/uac_test_seroff" tests/uac_test.c -lm
 run "USB audio input: descriptors (CDC built in, menu USB SERIAL OFF), ring and packets" "$OUT/uac_test_seroff"
 run "USB SERIAL OFF: the descriptors of a build without CDC, byte for byte" \
     sh -c "[ \"\$(UAC_DUMP=1 '$OUT/uac_test_seroff' | tail -n 2)\" = \"\$(UAC_DUMP=1 '$OUT/uac_test_nocdc' | tail -n 2)\" ] && echo same"
+$CC -DT_CDC=0 -DHALF_FRAMES=$HALF -o "$OUT/usb_sample_test" tests/usb_sample_test.c -lm
+run "USB SAMPLE: descriptors (USB audio from the host), the recorder (ADPCM, 22.05 kHz)" "$OUT/usb_sample_test"
+$CC -DT_CDC=2 -DHALF_FRAMES=$HALF -o "$OUT/usb_sample_test_seroff" tests/usb_sample_test.c -lm
+run "USB SAMPLE: the same with CDC built in, menu USB SERIAL OFF" "$OUT/usb_sample_test_seroff"
 uac_in_app() { ${CC%% *} -E -Ibuild/gen -Ifirmware/hal -Ifirmware/src firmware/src/felucca.c 2>/dev/null | grep -q uac_service; }
 run "USB audio input: built into the firmware (FELUCCA_UAC set before usb.c)" uac_in_app
 
@@ -152,6 +156,7 @@ run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/inst
 
 if command -v node >/dev/null 2>&1; then
     run "web pages: editor protocol, samples, packages, update protocol" node web/test_web.mjs
+    run "web pages: SoundFont presets into a sample slot (sf2.js, buildSlot)" node web/test_sf2.mjs
     $CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/nsp1_export" tests/nsp1_export.c -lm &&
         mkdir -p "$OUT/als" && "$OUT/nsp1_export" "$OUT/als" >/dev/null
     run "Ableton export (web/als): the notes as the FM-1 plays them, sections as scenes, the .als and .mid" \

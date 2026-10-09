@@ -75,7 +75,7 @@ The feature bits are:
 | 1 | clock out |
 | 2 | Song Position in |
 | 4 | USB audio to the host |
-| 8 | USB audio from the host (live sampling; milestone 5) |
+| 8 | USB audio from the host (live sampling: menu AUDIO → USB SAMPLE, at the next start, with USB SERIAL off) |
 | 16 | the 808 CM / 909 CM circuit kits |
 
 ### Projects: backup objects (v6)

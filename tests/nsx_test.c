@@ -60,6 +60,8 @@ int main(void)
         check(psize == sizeof(project_t) && (flags & NSX_F_CLOCK_OUT) && (flags & NSX_F_SPP_IN) && (flags & NSX_F_CIRCUIT_DRUMS) &&
               drch == 10u && slots == SMP_USER_SLOTS && kib == 64u && waves == WT_USER && kits == DRUM_KITS && cm8 == DRUM_CM808 &&
               cm9 == DRUM_CM909 && rd == ed_n, "CAPS: the NSP1 size, clock out, SPP, circuit kits, drum channel, slots, kits, nothing after");
+        check(!(flags & NSX_F_USB_AUDIO_OUT) == !FELUCCA_UAC && !(flags & NSX_F_USB_AUDIO_IN) == !FELUCCA_UAC,
+              "CAPS: USB audio both ways (USB SAMPLE) with the USB audio build");
     }
     {
         uint8_t op;

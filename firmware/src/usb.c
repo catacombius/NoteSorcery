@@ -264,6 +264,68 @@ static int usb_cdc_now(void) { return usb_cdc_on; }   /* (the menu: what this st
 #else
 static int usb_cdc_now(void) { return 0; }
 #endif
+/* NoteSorcery: USB SAMPLE's states and length (usb_sample.c records, ui_menu.c shows) */
+enum { US_IDLE, US_ARMED, US_REC, US_SAVE, US_DONE, US_FAIL };
+#define USMP_MAX_N ((64u * 1024u - 512u) * 2u)          /* samples a slot holds (SMP_USER_SIZE, _DATA): 5.9 s */
+#if FELUCCA_UAC
+/* NoteSorcery: USB SAMPLE (menu AUDIO > USB SAMPLE, from the next start, with USB SERIAL off): a second audio
+ * streaming interface, the host's audio TO the FM-1 (an output device on the phone or computer), on EP3 OUT,
+ * isochronous adaptive, 16-bit stereo at 44.1 kHz; usb_sample.c records it into a user sample slot (the USB
+ * SAMPLE screen). The descriptors are the plain ones (USB SERIAL off, the same bytes) with input terminal 3 (USB
+ * streaming) -> output terminal 4 (speaker) in the audio control interface and interface 3 at the end, and
+ * bcdDevice + 0.40 (hosts cache descriptors per version). Off (the default), the device is what it was. */
+#define USMP_IF 3u
+#define USMP_MAXP 192u                                  /* 46 frames x 4 bytes, rounded up */
+#define USMP_SRC_LEN (FELUCCA_CDC ? CFG_LEN - 74 : CFG_LEN)   /* the plain configuration */
+static uint8_t usb_smp_on;                              /* this start presents it (main.c, from the menu) */
+static uint8_t ep3iso[USMP_MAXP + 4] __attribute__((aligned(4)));
+static struct {
+    volatile uint8_t alt;                               /* the host streams (SET_INTERFACE alt 1) */
+    uint32_t pkts, frames, over;                        /* packets and frames taken, packets cut to USMP_MAXP */
+} usmp_usb;
+static void usmp_take(const int16_t *pcm, uint32_t frames);   /* usb_sample.c: from the TIMER5 ISR */
+static const uint8_t USMP_AC[21] = {
+    12, 0x24, 2, 3, 0x01, 0x01, 0, 2, 0x03, 0x00, 0, 0, /* input terminal 3: USB streaming, 2 ch (L R) */
+    9, 0x24, 3, 4, 0x01, 0x03, 0, 3, 0,                 /* output terminal 4: speaker, from 3 */
+};
+static const uint8_t USMP_AS[52] = {
+    9, 4, USMP_IF, 0, 0, 1, 2, 0, 0,                    /* IF3 audio streaming, alt 0: no bandwidth */
+    9, 4, USMP_IF, 1, 1, 1, 2, 0, 0,                    /* alt 1: the stream */
+    7, 0x24, 1, 3, 1, 0x01, 0x00,                       /* AS general: terminal 3, delay 1, PCM */
+    11, 0x24, 2, 1, 2, 2, 16, 1, 0x44, 0xAC, 0x00,      /* type I: 2 ch, 16 bit, 44100 */
+    9, 5, 0x03, 0x09, USMP_MAXP & 0xFF, USMP_MAXP >> 8, 1, 0, 0,   /* EP3 OUT isochronous adaptive, 1 ms */
+    7, 0x25, 1, 0x00, 0, 0, 0,                          /* CS endpoint: no controls */
+};
+#define CFG_SMP_LEN (USMP_SRC_LEN + 1 + sizeof USMP_AC + sizeof USMP_AS)
+static uint8_t cfg_smp[CFG_SMP_LEN], dev_smp[18];
+static int usb_smp_now(void) { return usb_smp_on && !usb_cdc_now(); }
+static const uint8_t *cfg_smp_get(void)
+{
+    if (!cfg_smp[0]) {
+#if FELUCCA_CDC
+        const uint8_t *src = cfg_plain_get(), *dv = DEV_DESC_PLAIN;
+#else
+        const uint8_t *src = CFG_DESC, *dv = DEV_DESC;
+#endif
+        uint32_t o = 18;                                /* config + IF0 as they are */
+        static const uint8_t HDR[11] = {11, 0x24, 1, 0x00, 0x01, 31 + 1 + sizeof USMP_AC, 0, 3, 1, UAC_AS_IF, USMP_IF};
+        memcpy(cfg_smp, src, 18);
+        memcpy(cfg_smp + o, HDR, sizeof HDR), o += sizeof HDR;           /* the header: three interfaces */
+        memcpy(cfg_smp + o, src + 28, 21), o += 21;                      /* IT 1, OT 2 */
+        memcpy(cfg_smp + o, USMP_AC, sizeof USMP_AC), o += sizeof USMP_AC;
+        memcpy(cfg_smp + o, src + 49, USMP_SRC_LEN - 49), o += USMP_SRC_LEN - 49;   /* MIDI, the audio input */
+        memcpy(cfg_smp + o, USMP_AS, sizeof USMP_AS), o += sizeof USMP_AS;
+        cfg_smp[2] = (uint8_t)(o & 0xFFu);
+        cfg_smp[3] = (uint8_t)(o >> 8);
+        cfg_smp[4] = (uint8_t)(src[4] + 1u);
+        memcpy(dev_smp, dv, 18);
+        dev_smp[12] = (uint8_t)(dev_smp[12] + 0x40u);
+    }
+    return cfg_smp;
+}
+#else
+static int usb_smp_now(void) { return 0; }
+#endif
 static const uint8_t STR0[4] = {4, 3, 0x09, 0x04};
 static const uint8_t STR1[] = {42, 3, 'H', 0, 0xFC, 0, 'g', 0, 'e', 0, 'l', 0, 't', 0, 'o', 0, 'n', 0, ' ', 0, 'I', 0,
                                'n', 0, 's', 0, 't', 0, 'r', 0, 'u', 0, 'm', 0, 'e', 0, 'n', 0, 't', 0, 's', 0};
@@ -284,6 +346,12 @@ static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
         if (!usb_cdc_on)
             *d = DEV_DESC_PLAIN;
 #endif
+#if FELUCCA_UAC
+        if (usb_smp_now()) {
+            cfg_smp_get();
+            *d = dev_smp;
+        }
+#endif
         return 1;
     case 2:
         *d = CFG_DESC;
@@ -292,6 +360,12 @@ static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
         if (!usb_cdc_on) {
             *d = cfg_plain_get();
             *l = CFG_PLAIN_LEN;
+        }
+#endif
+#if FELUCCA_UAC
+        if (usb_smp_now()) {
+            *d = cfg_smp_get();
+            *l = CFG_SMP_LEN;
         }
 #endif
         return 1;
@@ -432,6 +506,15 @@ static void ep1_config(void)
     uac_ep4_reset();
     fm1_usb_ep_enable(1u << 4);
     uac_stream(0);
+    if (usb_smp_now()) {                                /* USB SAMPLE: EP3 OUT, isochronous */
+        fm1_usb_ep_rxbuf(3, ep3iso);
+        sie_wr(S_INDEX, 3);
+        sie_wr(S_RXMAXP, 0xFF);
+        sie_wr(S_RXCSR1, 0x90);                         /* ClrDataTog + FlushFIFO */
+        sie_wr(S_RXCSR2, 0x40);                         /* ISO */
+        fm1_usb_ep_enable(1u << 3);
+        usmp_usb.alt = 0;
+    }
 #endif
 }
 
@@ -570,6 +653,10 @@ static void ep0_service(void)
         return;
     case 0x010B:                                        /* SET_INTERFACE: alt 0 (alt 1 for the audio stream) */
 #if FELUCCA_UAC
+        if (s[4] == USMP_IF && wvalue <= 1u && usb.config && usb_smp_now()) {
+            usmp_usb.alt = (uint8_t)wvalue;             /* (USB SAMPLE: the host's audio comes, or stops) */
+            goto ack;
+        }
         if (s[4] == UAC_AS_IF && wvalue <= 1u && usb.config) {
             uac_ep4_reset();
             uac_stream(wvalue);
@@ -581,9 +668,9 @@ static void ep0_service(void)
         goto stall;
     case 0x810A:
 #if FELUCCA_UAC
-        if (s[4] == UAC_AS_IF) {
+        if (s[4] == UAC_AS_IF || (s[4] == USMP_IF && usb_smp_now())) {
             static uint8_t alt;
-            alt = uac.alt;
+            alt = s[4] == UAC_AS_IF ? uac.alt : usmp_usb.alt;
             e0_send(&alt, 1, wlength);
             return;
         }
@@ -597,7 +684,7 @@ static void ep0_service(void)
         uint32_t ep = s[4] & 0x0Fu, last = 1u;
 #endif
 #if FELUCCA_UAC
-        if (wvalue == 0 && s[4] == 0x84u)
+        if (wvalue == 0 && (s[4] == 0x84u || (s[4] == 0x03u && usb_smp_now())))
             goto ack;                                   /* isochronous: no halt, no toggle */
 #endif
         if (wvalue != 0 || ep > last)
@@ -806,6 +893,30 @@ static void ep1_rx(void)                                /* leaves the packet (NA
     sie_wr(S_RXCSR1, csr & 0xFFu);
     sie_wr(S_RXCSR2, csr >> 8);
 }
+
+#if FELUCCA_UAC
+/* USB SAMPLE: a packet of the host's audio (16-bit stereo frames) to the recorder, every poll while it streams */
+static void usmp_rx(void)
+{
+    uint32_t csr, n;
+    sie_wr(S_INDEX, 3);
+    csr = sie_rd(S_RXCSR1) | (sie_rd(S_RXCSR2) << 8);
+    if (!(csr & 1u))
+        return;
+    n = sie_rd(S_RXCOUNT1) | (sie_rd(S_RXCOUNT2) << 8);
+    if (n > USMP_MAXP) {
+        n = USMP_MAXP;
+        usmp_usb.over++;
+    }
+    fm1_usb_rx_sync();
+    usmp_take((const int16_t *)(const void *)ep3iso, n / 4u);
+    usmp_usb.pkts++;
+    usmp_usb.frames += n / 4u;
+    csr = (csr & ~0x164u) | 0x10u;                      /* the packet taken (FlushFIFO), as EP1 */
+    sie_wr(S_RXCSR1, csr & 0xFFu);
+    sie_wr(S_RXCSR2, csr >> 8);
+}
+#endif
 
 #if FELUCCA_OTA
 /* ---- SysEx frames for the main loop (ota.c / editor.c hooks; felucca.c and the
@@ -1223,6 +1334,7 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
         uac.e0_rx = 0;
         uac_stream(0);
         uac_rate_set(UAC_RATE);
+        usmp_usb.alt = 0;
 #endif
         fm1_usb_ep0_buf(ep0buf);
         sie_wr(S_INTRUSBE, 0x07);
@@ -1238,7 +1350,7 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
     if (usb.config)
         ep1_tx();
 #if FELUCCA_CDC
-    if (usb.config) {
+    if (usb.config && usb_cdc_now()) {                  /* (USB SERIAL off: EP3 is USB SAMPLE's, or nobody's) */
         if (ir & 0x08u)
             cdc.rx_pend = 1;
         if (cdc.rx_pend)                                /* not every poll: 3 SIE round trips each */
@@ -1249,6 +1361,8 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
 #endif
 #if FELUCCA_UAC
     uac_service();
+    if (usb.config && usmp_usb.alt)
+        usmp_rx();
 #endif
 }
 

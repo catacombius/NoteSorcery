@@ -4,10 +4,11 @@
 Free and open source (GPL-3.0-only). Built on [SLOOP](https://github.com/isod89/sloop-fm1) by isod89,
 which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita / Hügelton Instruments.
 
-> **Status: in development (0.1).** Milestones 1–4, 6 and 7 are done: eight tracks, the new project format, the
+> **Status: in development (0.1).** All seven milestones are done: eight tracks, the new project format, the
 > ACID / WAVE engines, the circuit and Machinedrum-style drum kits, the visual sequencer, themes and night mode,
-> MIDI clock out and Song Position, Ableton export from the browser, and the FieldTape / NoteMove integration.
-> The rest of the roadmap is below. Install at your own risk and back up first: NoteSorcery does
+> MIDI clock out and Song Position, live sampling over USB, Ableton export from the browser, and the FieldTape /
+> NoteMove integration. They have been tested on the host, not yet on a device (see the roadmap below). Install at
+> your own risk and back up first: NoteSorcery does
 > not read SLOOP's projects, and its sample slots are smaller (see [Differences from SLOOP](#differences-from-sloop)).
 
 ## What it is
@@ -39,6 +40,10 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
   sections A–D as a Live Set (`.als`, Live 11 / 12: eight MIDI tracks, the sections as scenes and in the
   arrangement) or a MIDI file, from the FM-1 or from a saved backup file. The notes are what the FM-1 plays:
   swing, nudges, ties, slides, ratchets and dynamics included.
+- **Live sampling over USB:** with AUDIO → USB SAMPLE on, the FM-1 is also a USB audio *output*. Whatever a phone
+  or computer plays into it is recorded into a sample slot (USR1–4), starting at the first sound, as on an OP-1.
+  See [GUIDE.md: Live sampling over USB](GUIDE.md#live-sampling-over-usb). Recordings and SoundFont presets
+  (`.sf2`) can also be sent from the browser editor or from FieldTape.
 - **USB-C:** class-compliant MIDI in/out and USB audio from the FM-1 to your computer or phone (44.1 / 48 kHz).
   - **Clock in:** the FM-1 follows clock, Start/Stop and Song Position (USB or TRS).
   - **Clock out:** GLO → SYSTEM → MIDI = SEQ+CLK (or KEYS+CLK) makes the FM-1 the master of Ableton Live or of
@@ -56,7 +61,7 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 | 2 | ACID (Open303 + TB-3PO), WAVE (single-cycle), circuit-modelled 808 / 909, Machinedrum-style synth drums | **done** |
 | 3 | 8 × 16 visual sequencer screen, OP-1-style screens, themes (colours, dark / light, brightness), night mode | **done** |
 | 4 | MIDI clock **out** and Song Position Pointer for Ableton Live and other FM-1s; per-track MIDI out; NSX SysEx protocol | **done** |
-| 5 | Live sampling: the FM-1 as a USB audio output (record what a phone or computer plays), sample and SoundFont upload | planned |
+| 5 | Live sampling: the FM-1 as a USB audio output (record what a phone or computer plays), sample and SoundFont upload | **done** |
 | 6 | Ableton Live `.als` and `.mid` export from the browser editor, with no app needed | **done** |
 | 7 | Integration with the FieldTape and NoteMove Android apps (`android/fm1link`) | **done** |
 

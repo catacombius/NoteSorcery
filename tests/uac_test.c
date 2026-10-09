@@ -23,9 +23,11 @@
 #define FELUCCA_CDC (T_CDC != 0)
 #define CDC_SHOWN (T_CDC == 1)            /* the console presented */
 #define FELUCCA_UAC 1
+static volatile uint32_t fm1_ms;
 static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"   /* SIE register macros (never touched here) */
 #include "../firmware/src/usb.c"
+#include "../firmware/src/usb_sample.c"                 /* (usb.c hands USB SAMPLE's packets to it) */
 
 static int fails;
 static int check(const char *what, int ok)

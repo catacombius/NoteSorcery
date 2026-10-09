@@ -699,6 +699,7 @@
 /* NoteSorcery: the Ableton export (als/nsals.js) for the PROJECTS page; loaded on its own, the page works without it */
 import * as NSAls from "./als/nsals.js";
 window.NSAls = NSAls;
+import("./sf2.js").then((m) => { window.NSSf2 = m; }, () => {});   /* (the SAMPLES page's SoundFont reader) */
 </script>
 <script>
 "use strict";
@@ -1317,13 +1318,16 @@ function rootFromName(name) {
   return Math.max(0, Math.min(127, n));
 }
 
-/* zones: [{s: Int16Array (22050 Hz), root, lo?, hi?}] -> {hdr (480 B), data, zones} (sampleio.user_slot) */
+/* zones: [{s: Int16Array (22050 Hz), root, lo?, hi?, tune16?, ls?, le?, looped?}] -> {hdr (480 B), data, zones}
+   (sampleio.user_slot; NoteSorcery: a SoundFont's zones keep their loop, ls..le, and fine tuning, 1/16 semitones) */
 function buildSlot(name, zonesIn) {
   const zones = [], parts = [];
   let len = 0;
   for (const z of zonesIn) {
-    const e = imaEncode(z.s, 0);
-    zones.push({ off: len, n: z.s.length, ls: 0, le: z.s.length - 1, root: z.root, lo: z.lo ?? null, hi: z.hi ?? null, pred: e.pred, idx: e.idx });
+    const n = z.s.length, loop = !!z.looped && z.ls >= 0 && z.ls <= z.le && z.le < n;
+    const e = imaEncode(z.s, loop ? z.ls : 0);
+    zones.push({ off: len, n, ls: loop ? z.ls : 0, le: loop ? z.le : n - 1, looped: loop ? 1 : 0, tune16: z.tune16 | 0,
+      root: z.root, lo: z.lo ?? null, hi: z.hi ?? null, pred: e.pred, idx: e.idx });
     parts.push(e.data);
     len += e.data.length;
   }
@@ -1351,9 +1355,9 @@ function buildSlot(name, zonesIn) {
   zones.forEach((z, j) => {
     const b = 32 + j * 28;
     [z.off, z.n, z.ls, z.le, rate].forEach((x, k) => v.setUint32(b + k * 4, x >>> 0, true));
-    v.setInt16(b + 20, z.root * 16, true);
+    v.setInt16(b + 20, z.root * 16 + z.tune16, true);
     v.setInt16(b + 22, z.pred, true);
-    hdr[b + 24] = z.idx; hdr[b + 25] = z.lo; hdr[b + 26] = z.hi; hdr[b + 27] = 0;
+    hdr[b + 24] = z.idx; hdr[b + 25] = z.lo; hdr[b + 26] = z.hi; hdr[b + 27] = z.looped;
   });
   return { hdr, data, zones };
 }
@@ -3459,10 +3463,10 @@ const TEXT = {
     savedSlot: "保存しました: スロット ", loadedSlot: "読み込みました: スロット ", emptySlot: "空のスロットです: ",
     confirmSave: "スロット {n} に上書き保存しますか？", confirmLoad: "スロット {n} を読み込みますか？ 今の音色とパターンは置き換わります。",
     confirmClear: "シーケンスを全部消しますか？", confirmInit: "音色を初期化しますか？",
-    samples: "サンプル", smpHelp: "WAV をドロップするか選んでください。1 スロットに 16 ファイルまで、モノ 22050 Hz の ADPCM で合計約 7 秒。SAMPLE エンジンの SET（または SLICE エンジンの SRC）で USR1〜USR4 を選ぶと鳴ります。ドラムキットは「ドラムキット」ページで。",
+    samples: "サンプル", smpHelp: "WAV をドロップするか選んでください。1 スロットに 16 ファイルまで、モノ 22050 Hz の ADPCM で合計約 5.9 秒。SAMPLE エンジンの SET（または SLICE エンジンの SRC）で USR1〜USR4 を選ぶと鳴ります。ドラムキットは「ドラムキット」ページで。",
     zones: "ゾーン", smpName: "名前", chooseFiles: "ファイルを選ぶ", upload: "書き込む", erase: "消去", clearList: "リストを消す",
     file: "ファイル", root: "ルート", keys: "鍵盤", length: "長さ", remove: "外す",
-    chopOpen: "音を開く", chopHelp: "録音（WAV、MP3、AIFF…）を開くかドロップし、チョップを決めてスロットへ。1 キーに 1 チョップ。長い録音（7 秒以上）でも、使うチョップを選び長さを調整できます。",
+    chopOpen: "音を開く", chopHelp: "録音（WAV、MP3、AIFF…）を開くかドロップし、チョップを決めてスロットへ。1 キーに 1 チョップ。長い録音（5.9 秒以上）でも、使うチョップを選び長さを調整できます。",
     chopDrop: "ここに録音をドロップ、またはクリック", chopPlay: "▶ 再生", chopStop: "■ 停止", chopTap: "TAP",
     chopSnap: "アタックに吸着", chopClear: "マーカーを消去", chopHits: "アタック検出", chopSens: "感度",
     chopGrid: "グリッド", chopEqual: "等分", chopKey: "最初のキー", chopModeKeys: "1 キーに 1 チョップ",
@@ -3530,6 +3534,8 @@ const TEXT = {
     ablTitle: "Ableton Live へ", ablHelp: "FM-1 でスケッチして、PC の Ableton Live で続けましょう。今の曲とソングのセクション A〜D が 8 つの MIDI トラックとシーンになります（.als: Live 11 / 12）。Android は要りません。FM-1 なしでも、保存したバックアップファイルから書き出せます。",
     ablAls: "Live セット (.als) を書き出す", ablMid: "MIDI ファイル (.mid)", ablFile: "バックアップファイルから…", ablDone: "書き出しました: シーン × ノート ",
     ablEmpty: "書き出すノートがありません", ablBad: "読めないプロジェクトです: ", ablNoLib: "書き出し機能を読み込めませんでした（als/nsals.js）",
+    sf2NoLib: "SoundFont を読み込めませんでした（sf2.js）", sf2Pick: "プリセットを選んでください: ", sf2Loaded: "SoundFont プリセット: ",
+    sf2Cut: "SoundFont プリセット（スロットに収まるよう短縮）: ", sf2Preset: "SoundFont プリセット", sf2Use: "読み込む",
     bkTitle: "バックアップ", bkHelp: "FM-1 の中身をすべて 1 つのファイルに保存します: 今の曲、プロジェクト 1〜4（ソングのセクション A〜D）、ユーザープリセット、FM6 の音色バンク、サンプル USR1〜4、設定（色、キャリブレーション、ソング、ライト）。復元すると、本体はファイルの状態に戻ります（今の内容は上書きされます）。",
     bkSave: "バックアップを保存", bkLoad: "ファイルから復元", bkSaving: "バックアップ中 ", bkSaved: "バックアップを保存しました",
     bkRestoring: "復元中 ", bkRestored: "復元しました", bkConfirm: "FM-1 の今の内容をすべてこのバックアップで置き換えます。続けますか？",
@@ -3569,22 +3575,22 @@ const TEXT = {
     kitFitHelp: "長すぎるとき: 長い音（クラッシュ、オープンハット）を短くして収めます。",
     kitStep2: "置き場所",
     kitCapBig: "大きなキット · 約 15 秒",
-    kitCapOne: "約 7 秒",
+    kitCapOne: "約 5.9 秒",
     kitNotePair: "{x}: キットを USR3 と USR4 の 2 スロットに分けて入れます（自動）。USR1 と USR2 は楽器（SAMPLE）用に空いたまま。",
-    kitNoteOne: "{x}: キット全体を 1 スロットに（約 7 秒）。他のスロットは楽器用に空いたまま。",
+    kitNoteOne: "{x}: キット全体を 1 スロットに（約 5.9 秒）。他のスロットは楽器用に空いたまま。",
     kitReplaces: "今の中身を置き換えます: {x}",
     kitNo4: "このファームウェアには USR4 がありません（SLOOP 2.4 以降）。",
     kitStep3: "FM-1 に送る",
     kitWhereFM1: "FM-1 では: トラック 4（ドラム）→ KIT = {x}。保存したプロジェクトもこのキットを覚えています。",
-    smpIntro: "FM-1 に入れる自分の音。スロットは 4 つ（USR1〜USR4）、各約 7 秒。スロットには楽器（トラック 1〜3 の SAMPLE エンジンで鳴らす）か、ドラムキット（「ドラムキット」ページで作る）が入ります。",
+    smpIntro: "FM-1 に入れる自分の音。スロットは 4 つ（USR1〜USR4）、各約 5.9 秒。スロットには楽器（トラック 1〜3 の SAMPLE エンジンで鳴らす）か、ドラムキット（「ドラムキット」ページで作る）が入ります。",
     smpStep1: "スロットを選ぶ",
     smpStep2: "音を作る",
     smpStep3: "FM-1 に送って鳴らす",
     smpModeFiles: "ファイルから（1 ファイル = 1 音）",
     smpModeChop: "録音を切り分ける（CHOP）",
-    smpFilesHelp: "楽器用: 各ファイルが自分の音程で鳴り、間の鍵盤は近いファイルを音程を変えて鳴らします。\nピアノ、ベース、パッド、声、数個のワンショットに。ファイル名に音名を入れる（PIANO_C4.wav）か、下で設定。1 スロット 16 ファイルまで、合計約 7 秒。",
+    smpFilesHelp: "楽器用: 各ファイルが自分の音程で鳴り、間の鍵盤は近いファイルを音程を変えて鳴らします。\nピアノ、ベース、パッド、声、数個のワンショットに。ファイル名に音名を入れる（PIANO_C4.wav）か、下で設定。1 スロット 16 ファイルまで、合計約 5.9 秒。\nSoundFont（.sf2）: プリセットを 1 つ選ぶと、その鍵盤割り当て・ループ・チューニングごと最大 16 ゾーンに収めます。",
     smpChopHelp: "1 つの録音（ループ、ブレイク、フレーズ）を切って、1 キーに 1 片。\n① 録音を開くかドロップ ② 切る位置を決める: 再生中に TAP（スペースキー）、ヒット検出、グリッド、等分 ③ 要らない片のチェックを外し、長すぎたら短く ④ 下の 3 で送信。",
-    smpDrop: "WAV ファイルをここにドロップ",
+    smpDrop: "WAV または SoundFont（.sf2）をここにドロップ",
     smpDropHint: "またはクリックして選ぶ（複数可）",
     smpKeymap: "鍵盤の割り当て",
     smpNote: "音程",
@@ -3660,10 +3666,10 @@ const TEXT = {
     savedSlot: "Saved to slot ", loadedSlot: "Loaded slot ", emptySlot: "Empty slot: ",
     confirmSave: "Overwrite slot {n}?", confirmLoad: "Load slot {n}? The current sound and pattern will be replaced.",
     confirmClear: "Clear the whole sequence?", confirmInit: "Reset the sound to the engine defaults?",
-    samples: "Samples", smpHelp: "Drop or choose WAV files. Up to 16 files per slot, stored as mono 22050 Hz ADPCM (about 7 s in all). Select USR1–USR4 with SET on the SAMPLE engine (or SRC on the SLICE engine). Drum kits: the Drum kit page.",
+    samples: "Samples", smpHelp: "Drop or choose WAV files. Up to 16 files per slot, stored as mono 22050 Hz ADPCM (about 5.9 s in all). Select USR1–USR4 with SET on the SAMPLE engine (or SRC on the SLICE engine). Drum kits: the Drum kit page.",
     zones: "zones", smpName: "Name", chooseFiles: "Choose files", upload: "Upload", erase: "Erase", clearList: "Clear list",
     file: "File", root: "Root", keys: "Keys", length: "Length", remove: "Remove",
-    chopOpen: "Open a sound", chopHelp: "Open or drop a recording (WAV, MP3, AIFF…), mark the chops, send them to a slot: one chop per key. Any length: a recording longer than a slot (7 s) works, keep the chops you want and adjust them.",
+    chopOpen: "Open a sound", chopHelp: "Open or drop a recording (WAV, MP3, AIFF…), mark the chops, send them to a slot: one chop per key. Any length: a recording longer than a slot (5.9 s) works, keep the chops you want and adjust them.",
     chopDrop: "Drop a recording here, or click", chopPlay: "▶ Play", chopStop: "■ Stop", chopTap: "TAP",
     chopSnap: "snap to the hit", chopClear: "Clear markers", chopHits: "Find hits", chopSens: "sensitivity",
     chopGrid: "Grid", chopEqual: "Equal parts", chopKey: "First key", chopModeKeys: "one key per chop",
@@ -3731,6 +3737,8 @@ const TEXT = {
     ablTitle: "To Ableton Live", ablHelp: "Sketch on the FM-1, carry on in Ableton Live on your computer: the music you are working on and the song sections A–D become eight MIDI tracks and scenes (.als, Live 11 and 12). No Android device needed; without the FM-1 at hand, export from a saved backup file.",
     ablAls: "Export a Live Set (.als)", ablMid: "MIDI file (.mid)", ablFile: "From a backup file…", ablDone: "Exported: scenes × notes ",
     ablEmpty: "No notes to export", ablBad: "Not a project this editor reads: ", ablNoLib: "The export could not be loaded (als/nsals.js)",
+    sf2NoLib: "The SoundFont reader could not be loaded (sf2.js)", sf2Pick: "Pick a preset: ", sf2Loaded: "SoundFont preset: ",
+    sf2Cut: "SoundFont preset (shortened to fit the slot): ", sf2Preset: "SoundFont preset", sf2Use: "Load",
     bkTitle: "Backup", bkHelp: "Everything on the FM-1 in one file: the music you are working on, the projects 1–4 (the song sections A–D), the user presets, the FM6 patch bank, the samples USR1–USR4 and the settings (colours, calibration, the song, the lights). Restoring puts the FM-1 back as it was in the file (what is on it now is replaced).",
     bkSave: "Save a backup", bkLoad: "Restore from a file", bkSaving: "Backing up ", bkSaved: "Backup saved",
     bkRestoring: "Restoring ", bkRestored: "Restored", bkConfirm: "Replace everything on the FM-1 with this backup?",
@@ -3770,22 +3778,22 @@ const TEXT = {
     kitFitHelp: "Too long? Fit shortens the longest sounds (crashes, open hats) just enough.",
     kitStep2: "Where it goes",
     kitCapBig: "big kit · about 15 s",
-    kitCapOne: "about 7 s",
+    kitCapOne: "about 5.9 s",
     kitNotePair: "{x}: the kit is shared out over the two slots USR3 and USR4 by itself. USR1 and USR2 stay free for your instruments (SAMPLE).",
-    kitNoteOne: "{x}: the whole kit in one slot (about 7 s). The other slots stay free for instruments.",
+    kitNoteOne: "{x}: the whole kit in one slot (about 5.9 s). The other slots stay free for instruments.",
     kitReplaces: "It replaces what is there now: {x}",
     kitNo4: "This firmware has no USR4 (SLOOP 2.4 and later).",
     kitStep3: "Send it to the FM-1",
     kitWhereFM1: "On the FM-1: track 4 (drums) → KIT = {x}. A project you save remembers the kit.",
-    smpIntro: "Your own sounds on the FM-1. Four slots (USR1–USR4) of about 7 s each. A slot holds an instrument, played by a synth track with the SAMPLE engine, or a drum kit (made on the Drum kit page).",
+    smpIntro: "Your own sounds on the FM-1. Four slots (USR1–USR4) of about 5.9 s each. A slot holds an instrument, played by a synth track with the SAMPLE engine, or a drum kit (made on the Drum kit page).",
     smpStep1: "Choose a slot",
     smpStep2: "Make the sound",
     smpStep3: "Send it and play it",
     smpModeFiles: "From files (one note per file)",
     smpModeChop: "Chop a recording",
-    smpFilesHelp: "For an instrument: each file plays at its own note, and the keys in between play the nearest file, pitched.\nGood for a piano, a bass, a pad, a voice, or a few one-shots. Put the note in the file name (PIANO_C4.wav) or set it below. Up to 16 files, about 7 s in all.",
+    smpFilesHelp: "For an instrument: each file plays at its own note, and the keys in between play the nearest file, pitched.\nGood for a piano, a bass, a pad, a voice, or a few one-shots. Put the note in the file name (PIANO_C4.wav) or set it below. Up to 16 files, about 5.9 s in all.\nA SoundFont (.sf2): pick one of its presets; it comes in as up to 16 zones with its keys, loops and tuning, shortened to fit.",
     smpChopHelp: "Cut one recording (a loop, a break, a phrase) into pieces, one per key.\n① Open or drop it. ② Mark the cuts: TAP while it plays (or the space bar), Find hits, Grid or Equal parts. ③ Untick the pieces you don't want, shorten them if it is too long. ④ Send it in step 3 below.",
-    smpDrop: "Drop WAV files here",
+    smpDrop: "Drop WAV files or a SoundFont (.sf2) here",
     smpDropHint: "or click to choose them (several at once)",
     smpKeymap: "Which keys play which file",
     smpNote: "Note",
@@ -5448,6 +5456,31 @@ async function decodeFile(f) {
 }
 
 
+/* NoteSorcery: a SoundFont (sf2.js). Its presets to pick from (smpPage.sf2); one preset fills the draft: up to 16
+   zones with their keys, loops and tuning, shortened together to fit the slot */
+async function sf2Open(f) {
+  if (!window.NSSf2) { sayK("sf2NoLib"); return; }
+  try {
+    const sf = NSSf2.parseSf2(new Uint8Array(await f.arrayBuffer()));
+    smpPage.sf2 = { fname: f.name, sf, sel: 0 };
+    if (sf.presets.length === 1) sf2Use(0);
+    else sayK("sf2Pick", `${f.name} (${sf.presets.length})`);
+  } catch (e) { sayK("smpDecodeFail", `${f.name} (${e.message})`); }
+  renderSamples();
+}
+function sf2Use(i) {
+  const x = smpPage.sf2, d = smpPage.draft;
+  if (!x) return;
+  try {
+    const r = NSSf2.presetZones(x.sf, i, { rate: SMP.RATE, room: SMP.MAX_DATA * 2, maxZones: SMP.MAX_ZONES, resample });
+    d.files = r.zones;
+    d.name = r.name.toUpperCase().replace(/[^\x20-\x7E]/g, "").slice(0, 8);
+    x.sel = i;
+    sayK(r.cut ? "sf2Cut" : "sf2Loaded", `${r.name} · ${r.zones.length} ${t("zones")}`);
+  } catch (e) { sayK("smpDecodeFail", `${x.fname} (${e.message})`); }
+  renderSamples();
+}
+
 /* ---- the Samples page (2.4): 1 the slot, 2 the sound (from files, one note each; or CHOP, one recording cut in
    pieces), 3 send it and play it on a track. One draft for the files (smpPage.draft), whichever slot it goes to. */
 const smpPage = { slot: 0, mode: "files", draft: { name: "", files: [] }, ui: null };
@@ -5468,6 +5501,7 @@ async function addSmpFiles(list) {
   const d = smpPage.draft;
   let full = false;
   for (const f of list) {
+    if (/\.sf2$/i.test(f.name)) { await sf2Open(f); continue; }
     try {
       const z = await decodeFile(f);
       if (d.files.length >= SMP.MAX_ZONES) { full = true; break; }
@@ -5520,7 +5554,10 @@ function renderSamples() {
     u.modes = el("div", { class: "seg modes", role: "tablist" }, ...[["files", "smpModeFiles"], ["chop", "smpModeChop"]].map(([m, k]) =>
       el("button", { type: "button", role: "tab", "data-m": m, onclick: () => { P.mode = m; renderSamples(); } }, t(k))));
     u.modeHelp = el("div", { class: "modehelp" });
-    u.file = el("input", { type: "file", accept: ".wav,audio/wav,audio/x-wav,audio/*", multiple: true, hidden: true });
+    u.file = el("input", { type: "file", accept: ".wav,audio/wav,audio/x-wav,audio/*,.sf2", multiple: true, hidden: true });
+    u.sf2Sel = el("select", { "aria-label": t("sf2Preset") });
+    u.sf2Row = el("div", { class: "bar", hidden: true }, el("span", { class: "dim", text: t("sf2Preset") }), u.sf2Sel,
+      el("button", { type: "button", onclick: () => sf2Use(+u.sf2Sel.value) }, t("sf2Use")));
     u.file.addEventListener("change", () => { addSmpFiles([...u.file.files]); u.file.value = ""; });
     u.drop = el("div", { class: "dropzone", tabindex: "0", role: "button", onclick: () => u.file.click(),
       onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); u.file.click(); } } },
@@ -5536,7 +5573,7 @@ function renderSamples() {
     u.meterTxt = el("span", { class: "dim" });
     u.meterBox = el("div", { class: "kitmeter" }, u.meter, u.meterTxt);
     u.clear = el("button", { class: "warn", ic: "symbol_trash", onclick: () => { P.draft.files = []; renderSamples(); } }, t("clearList"));
-    u.filesPane = el("div", { class: "pane" }, u.drop, u.file,
+    u.filesPane = el("div", { class: "pane" }, u.drop, u.file, u.sf2Row,
       el("div", { class: "kithead" }, el("div", { class: "bar", style: "margin:0" }, el("span", { class: "dim", text: t("smpKeymap") })), u.meterBox),
       u.keymap, u.list, el("p", { class: "bar" }, u.clear));
     u.chopPane = el("div", { class: "pane" });
@@ -5585,6 +5622,13 @@ function renderSamples() {
   u.filesPane.hidden = P.mode !== "files";
   u.chopPane.hidden = P.mode !== "chop";
   u.modeHelp.replaceChildren(...t(P.mode === "files" ? "smpFilesHelp" : "smpChopHelp").split("\n").map((x) => el("p", { text: x })));
+  const x2 = P.sf2;                                  /* (a SoundFont with several presets: the picker) */
+  u.sf2Row.hidden = !x2 || x2.sf.presets.length < 2;
+  if (x2 && u.sf2For !== x2) {
+    u.sf2For = x2;
+    u.sf2Sel.replaceChildren(...x2.sf.presets.map((p, i) => el("option", { value: i, text: `${p.bank}:${String(p.program).padStart(3, "0")} ${p.name}` })));
+  }
+  if (x2) u.sf2Sel.value = x2.sel;
   const d = P.draft, keys = splitKeys(d.files), bytes = draftBytes(d);
   u.meter.value = Math.min(bytes, SMP.MAX_DATA);
   u.meterBox.classList.toggle("over", bytes > SMP.MAX_DATA);
@@ -5913,7 +5957,7 @@ async function smpInfo() { dev.smp = parse[CMD.SMP_INFO](await rq(req.smpInfo())
 
 async function smpUpload(k, prog, ask = true, d = smpDraft[k]) {   /* (d: the DRUM KIT page's own, not the Samples draft) */
   let built, done = false;
-  try { built = buildSlot(d.name, d.files.map((f) => ({ s: f.s, root: f.root, lo: f.lo, hi: f.hi }))); }
+  try { built = buildSlot(d.name, d.files.map((f) => ({ s: f.s, root: f.root, lo: f.lo, hi: f.hi, tune16: f.tune16, ls: f.ls, le: f.le, looped: f.looped }))); }
   catch (e) { sayK("smpFail", e.message); return false; }
   if (ask && !confirm(t("confirmUpload").replace("{n}", k + 1))) return false;
   const { hdr, data } = built;

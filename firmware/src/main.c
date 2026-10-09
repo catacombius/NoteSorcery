@@ -159,6 +159,9 @@ static void fm1_main(void)
 #if FELUCCA_CDC
     usb_cdc_on = usb_serial;                            /* menu USB SERIAL (persist_boot read it): before USB starts */
 #endif
+#if FELUCCA_UAC
+    usb_smp_on = usb_sample;                            /* NoteSorcery: menu USB SAMPLE, the same way */
+#endif
     usb_start();
 #if FELUCCA_UART
     uart_midi_init();
@@ -228,6 +231,7 @@ static void fm1_main(void)
         }
 #if FELUCCA_OTA
         ed_service();                                   /* web editor SysEx */
+        usmp_service();                                 /* USB SAMPLE: the take into flash */
         ota_service();                                  /* M-UPGRADE handshake */
         if (usb.ota_req) {                              /* M-UPGRADE upgrade command */
             usb.ota_req = 0;

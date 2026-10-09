@@ -86,6 +86,7 @@ static uint8_t lights_min;                     /* GLO > SYSTEM > IN (G_ROUTE): 1
 static const uint16_t LIGHTS_NS[LIGHTS_N] = {0u, 500u, 1000u, 2000u};   /* the backlight pulse a frame (ns): a lit
                                                 * LED ~95 us, the glow (landmarks) 4 us (fm1_input.h) */
 static uint8_t usb_serial;                      /* menu USB SERIAL: 1 = the serial console presented (usb.c) */
+static uint8_t usb_sample;                      /* NoteSorcery: menu USB SAMPLE, the host's audio in (usb.c, next start) */
 /* NoteSorcery: menu SCREEN > NIGHT. On: every button lit low, the keys too, the sounding notes, and the screen at its
  * dimmest; off: the LIGHTS, KEYS, NOTES and BRIGHT from before (kept in the settings' lights word) */
 static uint8_t night_on;
@@ -119,7 +120,7 @@ static uint32_t lights_word(void)
            (uint32_t)(usb_serial != 0u) << 16 | (uint32_t)(vis_style % 12u) << 17 |
            (uint32_t)(scr_bright % NBRIGHT) << 22 | (uint32_t)(night_on != 0u) << 24 |   /* NoteSorcery: BRIGHT, NIGHT */
            (uint32_t)(night_prev[0] & 3u) << 25 | (uint32_t)(night_prev[1] & 3u) << 27 |  /* .. and what NIGHT left */
-           (uint32_t)(night_prev[2] & 1u) << 29 | (uint32_t)(night_prev[3] & 3u) << 30;
+           (uint32_t)(night_prev[2] & 1u) << 29 | (uint32_t)(usb_sample != 0u) << 30;   /* (NIGHT's BRIGHT: RAM only) */
 }
 static void lights_from_word(uint32_t w)
 {
@@ -136,7 +137,8 @@ static void lights_from_word(uint32_t w)
     scr_bright = (uint8_t)((w >> 22) & 3u);         /* NoteSorcery: menu SCREEN > BRIGHT, NIGHT (gfx.c) */
     night_on = (uint8_t)((w >> 24) & 1u);
     night_prev[0] = (uint8_t)((w >> 25) & 3u), night_prev[1] = (uint8_t)((w >> 27) & 3u);
-    night_prev[2] = (uint8_t)((w >> 29) & 1u), night_prev[3] = (uint8_t)((w >> 30) & 3u);
+    night_prev[2] = (uint8_t)((w >> 29) & 1u);
+    usb_sample = (uint8_t)((w >> 30) & 1u);
     vis_style = (uint8_t)(((w >> 17) & 15u) % 12u);   /* the visualiser (ui_vis.c); 0 in 2.3 = OSCILLOSCOPE */     /* menu USB SERIAL (usb.c usb_cdc_on, at the next start); 0 in 2.3 = OFF */
 }
 

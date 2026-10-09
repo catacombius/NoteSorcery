@@ -39,6 +39,7 @@ static void fm1_irq_on(void) {}
 #include "../firmware/src/fx.c"
 static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 #include "../firmware/src/usb.c"
+#include "../firmware/src/usb_sample.c"               /* USB SAMPLE: usb.c hands it the host's packets, the menu its screen */
 #include "../firmware/src/midi_uart.c"                /* TRS MIDI IN: its parser (um_byte) feeds midi_in_q */
 #if FELUCCA_ARRANGER
 #include "../firmware/src/arranger.c"

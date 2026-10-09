@@ -32,7 +32,8 @@ static int ed_nsx_handle(uint32_t cmd, const uint8_t *a, uint32_t na)
         ed_b(NDRUMTRK);
         ed_u21(sizeof(project_t));                   /* an NSP1 project (backup objects 0, 2..5) */
         ed_b(PROJ_MAGIC & 0x7Fu);                    /* (the magic's first byte, "N") */
-        ed_b(NSX_F_CLOCK_OUT | NSX_F_SPP_IN | NSX_F_CIRCUIT_DRUMS | (FELUCCA_UAC ? NSX_F_USB_AUDIO_IN : 0u));
+        ed_b(NSX_F_CLOCK_OUT | NSX_F_SPP_IN | NSX_F_CIRCUIT_DRUMS |   /* (USB SAMPLE: with UAC; the editor means flash) */
+             (FELUCCA_UAC ? NSX_F_USB_AUDIO_IN | NSX_F_USB_AUDIO_OUT : 0u));
         ed_b(song.g[G_DRCH]);                        /* drum track 1's MIDI channel (1..16; drum track 2: the next) */
         ed_b(SMP_USER_SLOTS);
         ed_b(SMP_USER_SIZE >> 10);                   /* KiB a sample slot */

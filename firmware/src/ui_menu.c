@@ -7,11 +7,19 @@
  * its row), PRESETS moves the cursor; OCT+ steps the cursor's setting round or opens it (CALIBRATION, ABOUT),
  * OCT- closes (from ABOUT: back to the section). */
 /* ------------------------------------------------------------ menu --- */
-enum { MI_COLOR, MI_ZOOM, MI_BRIGHT, MI_NIGHT, MI_LIGHTS, MI_KEYS, MI_NOTES, MI_LOWCUT, MI_USB, MI_SERIAL, MI_PANEL,
-       MI_ABOUT, MI_COUNT };
+enum { MI_COLOR, MI_ZOOM, MI_BRIGHT, MI_NIGHT, MI_LIGHTS, MI_KEYS, MI_NOTES, MI_LOWCUT, MI_USB, MI_SERIAL, MI_USBSMP,
+       MI_PANEL, MI_ABOUT, MI_COUNT };
 static const char *const MI_NAME[MI_COUNT] = {"COLOR", "ZOOM", "BRIGHT", "NIGHT", "LIGHTS", "KEYS", "NOTES",
-                                              "SPEAKER LOWCUT", "USB AUDIO", "USB SERIAL", "HARDWARE CALIBRATION",
-                                              "ABOUT"};
+                                              "SPEAKER LOWCUT", "USB AUDIO", "USB SERIAL", "USB SAMPLE",
+                                              "HARDWARE CALIBRATION", "ABOUT"};
+/* NoteSorcery: the USB SAMPLE screen (ui.menu 3; usb_sample.c records, usb.c receives) */
+static int usmp_start(uint32_t k);
+static void usmp_stop(void);
+static uint32_t usmp_ui(uint32_t *n, int32_t *peak);
+static uint32_t usmp_state(void);
+static int usb_smp_streaming(void);
+static uint8_t usmp_slot_ui;                       /* the slot the next take goes to, 0..3 */
+static const char *const USMP_STATE[] = {"READY", "ARMED", "REC", "SAVING", "SAVED", "FAILED"};
 enum { MS_SCREEN, MS_LIGHTS, MS_AUDIO, MS_SYSTEM, MS_COUNT };
 static const char *const MS_NAME[MS_COUNT] = {"SCREEN", "LIGHTS", "AUDIO", "SYSTEM"};   /* (AUDIO: and USB) */
 static const uint8_t MS_FIRST[MS_COUNT + 1] = {MI_COLOR, MI_LIGHTS, MI_LOWCUT, MI_PANEL, MI_COUNT};   /* rows of each */
@@ -47,9 +55,72 @@ static const char *mi_value(uint32_t i, uint16_t *c)
     case MI_LOWCUT: return settings.lowcut ? "ON" : "OFF";
     case MI_USB: return usb_full ? "FULL" : "MASTER";
     case MI_SERIAL: return usb_serial ? "ON" : "OFF";
+    case MI_USBSMP: return usb_sample ? "ON" : "OFF";
     default:
         *c = C_DIM;
         return "";                                    /* (an action: OCT+ opens it) */
+    }
+}
+
+/* NoteSorcery: the USB SAMPLE screen. Play into the FM-1 from a phone or computer (its USB audio output); OCT+ erases
+ * the slot and arms, the take starts with the first sound and ends with OCT+, the slot full or 2 s of silence */
+static void draw_usb_sample(void)
+{
+    uint32_t n, pass, sig;
+    static int32_t pk_hold;
+    int32_t pk;
+    uint32_t st = usmp_ui(&n, &pk);
+    pk_hold = pk > pk_hold ? pk : pk_hold - pk_hold / 8;          /* the meter falls back slowly */
+    sig = st * 7u + n / 2205u * 131u + (uint32_t)pk_hold / 1024u * 7919u + usmp_slot_ui * 104729u +
+          (uint32_t)usb_smp_now() * 1299709u + (uint32_t)usb_smp_streaming() * 15485863u;
+    if (!ui.force && sig == ui.menu_sig)
+        return;
+    ui.menu_sig = sig;
+    if (ui.force)
+        lcd_fill(0, H_HEAD + 1 + 124 + 95, 240, 240 - (H_HEAD + 1 + 124 + 95), C_BLACK);
+    cv_begin(240, H_HEAD, C_BLACK);
+    cv_text(4, 1, &FONT_S, "USB SAMPLE", C_HI);
+    {
+        char t[6] = {'U', 'S', 'R', (char)('1' + usmp_slot_ui), 0, 0};
+        cv_text(236 - text_w(&FONT_S, t), 1, &FONT_S, t, TE_COL[0]);
+    }
+    cv_blit(0, Y_HEAD);
+    lcd_fill(0, H_HEAD, 240, 1, C_LINE);
+    for (pass = 0; pass < 2u; pass++) {
+        cv_begin(240, pass ? 95u : 124u, C_BLACK);
+        cv_oy = pass ? -124 : 0;
+        if (!usb_smp_now()) {
+            cv_text(4, 6, &FONT_L, "OFF", C_DIM);
+            cv_text(4, 44, &FONT_S, "MENU > AUDIO > USB SAMPLE: ON,", C_HI);
+            cv_text(4, 60, &FONT_S, "USB SERIAL: OFF, THEN RESTART.", C_HI);
+            cv_text(4, 84, &FONT_S, "THE FM-1 IS THEN AN AUDIO", C_GRAY);
+            cv_text(4, 100, &FONT_S, "OUTPUT OF YOUR PHONE OR", C_GRAY);
+            cv_text(4, 116, &FONT_S, "COMPUTER: PLAY, AND RECORD.", C_GRAY);
+        } else {
+            uint32_t sec10 = n * 10u / 22050u, max10 = USMP_MAX_N * 10u / 22050u, wbar = n * 228u / USMP_MAX_N;
+            char t[24];
+            cv_text(4, 4, &FONT_L, USMP_STATE[st % 6u], st == US_REC ? TE_RED : st == US_ARMED ? TE_COL[2] : C_WHITE);
+            cv_text(4, 40, &FONT_S, usb_smp_streaming() ? "HOST PLAYING" : "HOST SILENT", usb_smp_streaming() ? C_HI : C_DIM);
+            cv_rect(4, 60, 228, 8, C_LINE);                                   /* the input */
+            cv_rect(4, 60, (int32_t)((uint32_t)pk_hold * 228u / 32768u), 8, pk_hold > 30000 ? TE_RED : TE_COL[1]);
+            cv_rect(4, 76, 228, 8, C_LINE);                                   /* the slot */
+            cv_rect(4, 76, (int32_t)wbar, 8, TE_COL[0]);
+            fmt_int(t, (int32_t)(sec10 / 10u));
+            str_cpy(t + str_len(t), ".", 2);
+            fmt_int(t + str_len(t), (int32_t)(sec10 % 10u));
+            str_cpy(t + str_len(t), " / ", 4);
+            fmt_int(t + str_len(t), (int32_t)(max10 / 10u));
+            str_cpy(t + str_len(t), ".", 2);
+            fmt_int(t + str_len(t), (int32_t)(max10 % 10u));
+            str_cpy(t + str_len(t), " S", 3);
+            cv_text(4, 92, &FONT_S, t, C_GRAY);
+            cv_text(4, 130, &FONT_S, "K1 SLOT", TE_COL[0]);
+            cv_text(4, 150, &FONT_S, st == US_ARMED || st == US_REC ? "OCT+ STOP" : "OCT+ ERASE AND ARM", C_HI);
+            cv_text(4, 166, &FONT_S, "(STARTS WITH THE FIRST SOUND)", C_DIM);
+        }
+        cv_text(4, 196, &FONT_S, "OCT- CLOSE", C_DIM);
+        cv_oy = 0;
+        cv_blit(0, H_HEAD + 1 + pass * 124u);
     }
 }
 
@@ -59,7 +130,11 @@ static void draw_menu(void)
     uint32_t sig = ui.menu * 7u + ui.menu_sel * 131u + settings.palette * 1009u + settings.lowcut * 7919u +
                    settings.zoom * 104729u + lights_lvl * 1299709u + lights_keys * 15485863u +
                    lights_notes * 32452843u + usb_full * 49979687u + usb_serial * 86028121u + scr_bright * 179424673u +
-                   night_on * 373587883u;
+                   night_on * 373587883u + usb_sample * 2971215073u;
+    if (ui.menu == 3) {
+        draw_usb_sample();
+        return;
+    }
     if (!ui.force && sig == ui.menu_sig)
         return;
     ui.menu_sig = sig;
@@ -133,6 +208,9 @@ static void draw_menu(void)
                 }
                 if (i == MI_SERIAL && usb_serial != usb_cdc_now())
                     cv_text(xv + 8, y + 30, &FONT_S, "RESTART", C_AMB);   /* (usb.c: at the next start) */
+                if (i == MI_USBSMP)                     /* (usb.c: at the next start, without the console) */
+                    cv_text(xv + 8, y + 30, &FONT_S, usb_sample != usb_smp_now() ? "RESTART" : "OCT+ OPENS",
+                            usb_sample != usb_smp_now() ? C_AMB : C_DIM);
             }
             {
                 int32_t yf = MI_Y0 + (int32_t)(nrow > 3u ? nrow : 3u) * dy;   /* (under the rows: .. 218 / 220) */
@@ -199,6 +277,13 @@ static void mi_set(uint32_t i, int32_t s)
     case MI_SERIAL:
         usb_serial = (uint8_t)(s > 0 ? 1u : s < 0 ? 0u : !usb_serial);
         break;
+    case MI_USBSMP:                                    /* knob: ON / OFF (next start); OCT+ opens the screen */
+        if (s)
+            usb_sample = (uint8_t)(s > 0);
+        else
+            ui.menu = 3;
+        ui.force = 1;
+        break;
     case MI_NOTES:
         lights_notes = (uint8_t)(s > 0 ? 1u : s < 0 ? 0u : !lights_notes);
         break;
@@ -240,10 +325,26 @@ static void menu_input(uint32_t pressed)
     uint32_t k, ok = (pressed >> panel.btn[B_OCTUP]) & 1u, back = (pressed >> panel.btn[B_OCTDN]) & 1u;
     uint32_t sel = ui.menu_sel % MI_COUNT, sec = mi_sec(sel), n = MS_FIRST[sec + 1u] - MS_FIRST[sec];
     if (back) {
-        if (ui.menu == 2)
+        if (ui.menu == 3)
+            usmp_stop();                               /* (a take running: it ends, and is kept) */
+        if (ui.menu == 2 || ui.menu == 3)
             ui.menu = 1, ui.force = 1;
         else
             menu_close();
+        return;
+    }
+    if (ui.menu == 3) {                                /* USB SAMPLE: K1 the slot, OCT+ arm / stop */
+        uint32_t st = usmp_state();
+        if ((s = panel_enc(EN_K1)) != 0 && st != US_ARMED && st != US_REC && st != US_SAVE)
+            usmp_slot_ui = (uint8_t)((usmp_slot_ui + (s > 0 ? 1u : SMP_USER_SLOTS - 1u)) % SMP_USER_SLOTS);
+        if (ok && usb_smp_now()) {
+            if (st == US_ARMED || st == US_REC)
+                usmp_stop();
+            else if (st != US_SAVE)
+                usmp_start(usmp_slot_ui);              /* (erases the slot: ~0.7 s) */
+        }
+        ui.force |= ok;
+        enc_drop();
         return;
     }
     if (ui.menu != 1) {
