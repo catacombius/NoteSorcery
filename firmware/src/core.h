@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Felucca core types: tracks, voices, engines, parameters.
- * Four tracks: tracks 1..3 are synth parts (each its own engine, preset, parameters,
- * voices and 64-step pattern), track 4 is the GM drum part (drums.c; its own voices,
- * pattern and the pattern parameters of its track_t). The parts share one budget of
+ * NoteSorcery: eight tracks. Tracks 1..6 are synth parts (each its own engine, preset, parameters,
+ * voices and 64-step pattern), tracks 7 and 8 are drum machines (drums.c; their own voices,
+ * pattern and the pattern parameters of their track_t). The parts share one budget of
  * NVOICE sounding voices (voice.c). */
 #include <stdint.h>
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPOLY 8
-#define NPART 3                  /* synth parts: tracks 1..3 */
-#define NTRK 4                   /* + the drum track */
-#define TRK_DRUM 3
+#define NPART 6                  /* synth parts: tracks 1..6 */
+#define NDRUMTRK 2               /* drum tracks: 7 and 8 */
+#define NTRK (NPART + NDRUMTRK)  /* (a bit per track in uint8_t masks: song.rec, song.solo) */
+#define TRK_DRUM NPART           /* the first drum track */
 enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #define NSTEP 64
 #define HALF_FRAMES 256          /* I2S half buffer: 5.8 ms at 44.1 kHz */
@@ -288,7 +289,7 @@ typedef struct {
     int32_t batt_raw;            /* smoothed ADC ch3 (battery divider), 0 = not read yet */
 } song_t;
 
-static track_t trk[NTRK];        /* the instrument: three parts and the drum track */
+static track_t trk[NTRK];        /* the instrument: six parts and two drum tracks */
 static song_t song;
 
 /* The transport clock (seq.c runs it). One unit = one sample at 1 BPM: a beat is BEAT_U units at any
@@ -322,8 +323,17 @@ static uint32_t div_samples(uint32_t div) { return div_units(div) / (uint32_t)so
 /* length of the delay's TIME (N_DLY order) in samples at the song tempo (rounded down) */
 static uint32_t dly_samples(uint32_t d) { return dly_units(d) / (uint32_t)song.g[G_BPM]; }
 #define TSEL (&trk[song.sel])    /* the selected track */
-#define TDRUM (&trk[TRK_DRUM])
-static int is_drum(const track_t *t) { return t == TDRUM; }
+/* the drum track the drum screens, keys and pads work on: the selected one, else the last one selected */
+static uint8_t drum_focus;
+static track_t *tdrum(void)
+{
+    if (song.sel >= TRK_DRUM && song.sel < NTRK)
+        drum_focus = (uint8_t)(song.sel - TRK_DRUM);
+    return &trk[TRK_DRUM + drum_focus % NDRUMTRK];
+}
+#define TDRUM (tdrum())
+static int is_drum(const track_t *t) { return (uint32_t)(t - trk) >= TRK_DRUM; }
+static uint32_t drum_no(const track_t *t) { return (uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK; }   /* 0, 1 */
 /* silent: MUTE, or another track is soloed */
 static int trk_silent(const track_t *t)
 {

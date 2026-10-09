@@ -1222,7 +1222,7 @@ print(",".join(i.filename + ":" + str(i.file_size) for i in z.infolist()))`, zp)
   const fitted = many.map((c) => ({ ...c, end: Math.min(c.end, c.start + Lf) }));
   let built = null;
   try { built = E.buildSlot("LONG", E.chopZones(long, fitted, 60, 0)); } catch (e) { built = null; }
-  ok(Lf < R * 0.5 && Lf > R * 0.4 && built && built.data.length <= E.SMP.MAX_DATA && built.hdr[6] === 16,
+  ok(Lf < R * 0.5 && Lf > R * 0.33 && built && built.data.length <= E.SMP.MAX_DATA && built.hdr[6] === 16,
     `chop: Fit to slot: 16 x 0.5 s cut to ${(Lf / R).toFixed(3)} s each, the slot builds`);
   ok(E.chopFit([{ start: 0, end: 100 }, { start: 0, end: 300 }], 250) === 150, "chop: fit keeps short chops whole, cuts the long ones");
 }
@@ -1238,7 +1238,7 @@ async function packages() {
   const logical = py(`import sys; raw = open(sys.argv[1], "rb").read()
 sys.stdout.buffer.write(b"".join(raw[i * 48:i * 48 + 47] for i in range(20)) + raw[960:])`, pkg);
   ok(eq(logicalImage(raw), logical), "fm1pkg.js logicalImage");
-  ok(/^FM-1_9\d\d$/.test(productOf(raw)), "fm1pkg.js productOf");
+  ok(/^FM-1_95\d\d$/.test(productOf(raw)), "fm1pkg.js productOf (NoteSorcery: FM-1_95XY)");
 }
 
 /* ------------------------------------------------- update protocol (fm1ota.js) --- */

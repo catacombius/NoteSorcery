@@ -19,12 +19,12 @@ int main(int argc, char **argv)
     for (kit = DRUM_SAMPLED; kit < DRUM_USR; kit++)
         for (ln = 0; ln < 16u; ln++) {
             memset(&drums, 0, sizeof drums);
-            drums.set = -2;
+            drum_gm_set = -2;
             TDRUM->p[P_E0] = (int16_t)kit;
-            drum_on(LANE_GM[ln], 110);
+            drum_on(TDRUM, LANE_GM[ln], 110);
             for (b = 0; b < FS * 2u / CTL; b++) {
                 int32_t l[CTL] = {0}, r[CTL] = {0}, rv[CTL] = {0};
-                drums_render(l, r, rv, rv, CTL);
+                drums_render(TDRUM, l, r, rv, rv, CTL);
                 for (i = 0; i < CTL; i++) {
                     int32_t m = (l[i] + r[i]) / 2;
                     fwrite(&m, 4, 1, f);

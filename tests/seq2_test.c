@@ -59,7 +59,7 @@ static void reset(uint32_t bpm)
     for (i = 0; i < NTRK; i++)
         steps_clear(&trk[i]);
     memset(&drums, 0, sizeof drums);
-    drums.set = -2;
+    drum_gm_set = -2;
     nhits = 0;
     blk = 0;
     song.g[G_BPM] = (int16_t)bpm;
@@ -1157,9 +1157,13 @@ static void t_midicc(void)
     cc_push(drch, 7, 0); cc_push(drch, 91, 127); cc_push(drch, 10, 0); cc_push(drch, 74, 127); cc_push(drch, 73, 127);
     cc_push(drch, 94, 64);
     run_block(); run_block();
-    check(song.g[G_DRLVL] == 0 && song.g[G_DRREV] == 127 && song.g[G_DRDLY] == 64 && TDRUM->p[P_PAN] == -64 && TDRUM->p[P_TFLT] == 63
-          && TDRUM->p[P_ATK] == before[P_ATK] && TDRUM->p[P_DLY] == before[P_DLY],
-          "2.5: the drum channel: 7 / 91 / 94 = DRUMS LVL / REV / DLY, 10 PAN, 74 FILTER; 73 ignored");
+    check(trk[TRK_DRUM].p[P_LEVEL] == 0 && song.g[G_DRREV] == 127 && song.g[G_DRDLY] == 64 && trk[TRK_DRUM].p[P_PAN] == -64 &&
+          trk[TRK_DRUM].p[P_TFLT] == 63 && trk[TRK_DRUM].p[P_ATK] == before[P_ATK] && trk[TRK_DRUM].p[P_DLY] == before[P_DLY],
+          "the drum channel: 7 / 10 / 74 = the drum track's LEVEL / PAN / FILTER, 91 / 94 the drum bus REV / DLY; 73 ignored");
+    cc_push((drch + 1u) & 15u, 7, 0); cc_push((drch + 1u) & 15u, 10, 127);
+    run_block(); run_block();
+    check(trk[TRK_DRUM + 1].p[P_LEVEL] == 0 && trk[TRK_DRUM + 1].p[P_PAN] == 63 && trk[TRK_DRUM].p[P_PAN] == -64,
+          "NoteSorcery: the next channel is drum track 2's (its LEVEL, PAN), not drum track 1's");
     song.g[G_DRDLY] = 0;
     song.g[G_ROUTE] = 1;
     cc_push(0, 7, 55);

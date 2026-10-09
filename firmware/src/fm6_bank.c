@@ -7,8 +7,8 @@
  * and after every write (st_current: headers, CRC): fm6_bank_cur says which, fm6_bank_used which slots hold
  * a patch. The web editor writes it (EDITOR_PROTOCOL.md FM6_PUT / FM6_ERASE, while stopped); a full backup
  * carries it (object 8). An empty slot, or a bank of another layout, plays the init voice. A write stages
- * the bank in proj_tmp (the project load buffer: main loop, as a project load) and goes through st_save; the
- * payload ends 3472 + 256 bytes into its sector, the tail stays erased. Included by project.c (proj_tmp). */
+ * the bank in proj_stage (the project load buffer: main loop, as a project load) and goes through st_save; the
+ * payload ends 3472 + 256 bytes into its sector, the tail stays erased. Included by project.c (proj_stage). */
 #define FM6_BANK_MAGIC 0x42364D46u               /* "FM6B" */
 typedef struct {
     uint32_t magic;
@@ -18,7 +18,7 @@ typedef struct {
     uint8_t v[FM6_BANK_N][FM6_PACKED];
 } fm6_bank_t;
 _Static_assert(sizeof(fm6_bank_t) == 3472u, "FM6 bank layout");
-_Static_assert(sizeof proj_tmp >= sizeof(fm6_bank_t), "the bank is staged in the project buffer");
+_Static_assert(sizeof proj_stage >= sizeof(fm6_bank_t), "the bank is staged in the project buffer");
 static int8_t fm6_bank_cur = -1;                 /* the copy (0 A, 1 B) holding a valid bank, -1 = none */
 static uint32_t fm6_bank_used;                   /* its used bits */
 #ifndef FM6_BANK_XIP                             /* host tests: the simulated NOR */
@@ -80,7 +80,7 @@ static void fm6_bank_changed(void)
  * stopped (the caller checks: a sector erase silences the audio) */
 static int fm6_bank_put(uint32_t k, const uint8_t *pk)
 {
-    fm6_bank_t *b = (fm6_bank_t *)&proj_tmp;
+    fm6_bank_t *b = (fm6_bank_t *)&proj_stage;
     uint8_t v[FP_SIZE + 1u];
     if (k >= FM6_BANK_N)
         return 1;

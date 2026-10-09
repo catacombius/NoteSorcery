@@ -250,7 +250,7 @@ def key_split(roots):
 
 
 # ---- user sample slots (firmware/src/eng_sample.c, web/EDITOR_PROTOCOL.md)
-SLOT_SIZE, SLOT_DATA_OFF, SLOT_RATE, SLOT_ZONES = 0x14000, 512, 22050, 16
+SLOT_SIZE, SLOT_DATA_OFF, SLOT_RATE, SLOT_ZONES = 0x10000, 512, 22050, 16   # NoteSorcery: 64 KiB slots
 SLOT_HDR_LEN = 32 + SLOT_ZONES * 28
 SLOT_MAX_DATA = SLOT_SIZE - SLOT_DATA_OFF
 

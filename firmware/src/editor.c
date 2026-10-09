@@ -394,9 +394,9 @@ static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t **vp)
  * PUT stages one object in RAM (begin: id, length, CRC-32; data; commit), checks it as a load would,
  * then writes it through the usual A/B commit: a cut-off restore never leaves half an object. */
 #if FELUCCA_FLASH
-#define ED_BK_RAW ((uint8_t *)&proj_tmp)                  /* the staging RAM (main loop, as the project loads) */
-_Static_assert(sizeof proj_tmp >= sizeof(project_t) && sizeof proj_tmp >= sizeof(up_bank_t) &&
-               sizeof proj_tmp >= sizeof(persist_t), "backup staging");
+#define ED_BK_RAW ((uint8_t *)&proj_stage)                /* the staging RAM (main loop, as the project loads) */
+_Static_assert(sizeof proj_stage >= sizeof(project_t) && sizeof proj_stage >= sizeof(up_bank_t) &&
+               sizeof proj_stage >= sizeof(persist_t), "backup staging");
 static persist_t ed_bk_set;                             /* LIST's snapshot of the settings */
 static uint8_t ed_bk_valid, ed_bk_put, ed_bk_id;
 static uint32_t ed_bk_len, ed_bk_crc, ed_bk_pos, ed_bk_ms;
@@ -417,10 +417,12 @@ static const uint8_t *ed_bk_obj(uint32_t id, uint32_t *len)   /* 0 = no such obj
         *len = sizeof ed_bk_set;
         return (const uint8_t *)&ed_bk_set;
     }
-    if (id >= 2u && id <= 5u) {
-        if (project_used(id - 2u))
-            *len = sizeof proj_slot[0];
-        return (const uint8_t *)&proj_slot[id - 2u];
+    if (id >= 2u && id <= 5u) {                           /* a section: in flash (XIP), or waiting in RAM */
+        const project_t *q = sec_get(id - 2u);
+        static const uint32_t none = 0;
+        if (q)
+            *len = sizeof *q;
+        return q ? (const uint8_t *)q : (const uint8_t *)&none;
     }
     if (id == 6u || id == 7u) {
         if (up_bank[id - 6u].magic == UP_BANK_MAGIC)
@@ -525,7 +527,7 @@ static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 1: a back
             ed_b(ED_BK_IDS[i]);
             ed_bk_u32(len);
             ed_bk_u32(st_crc32(p, len));
-            fm1_wdt_feed();                               /* (a sample slot: up to 80 KiB through the CRC) */
+            fm1_wdt_feed();                               /* (a sample slot: up to 64 KiB through the CRC) */
         }
         return 1;
     }
@@ -551,7 +553,7 @@ static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 1: a back
         } else if (op == 0u && na == 12u && (id <= 9u)) {  /* begin: id, length (5), CRC-32 (5) */
             len = ed_bk_r32(a + 2);
             if (id >= 2u || len) {                        /* (the working project and the settings are never empty) */
-                if (len <= sizeof proj_tmp) {
+                if (len <= sizeof proj_stage) {
                     ed_bk_put = 1;
                     ed_bk_valid = 0;                      /* (the staging RAM is the snapshot's) */
                     ed_bk_id = (uint8_t)id;
@@ -905,11 +907,12 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         for (i = 0; i < NTRK; i++) {
             ed_b(ed_eng(&trk[i]));
             ed_b(trk[i].preset);
-            ed_v(i == TRK_DRUM ? song.g[G_DRLVL] : trk[i].p[P_LEVEL]);
+            ed_v(trk[i].p[P_LEVEL]);                       /* (NoteSorcery: a drum track's own LEVEL too) */
             ed_b(trk[i].p[P_MUTE] != 0);
             ed_b((song.rec >> i) & 1u);
         }
-        ed_b(song.solo & 15u);                            /* v5: the tracks soloed */
+        ed_b(song.solo & 127u);                           /* v5: the tracks soloed (NoteSorcery: 8 bits, two bytes) */
+        ed_b(song.solo >> 7);
         break;
     case ED_TRACK_MIX: {                                   /* track [, level v14, mute] -> track, level, mute */
         track_t *t;
@@ -917,14 +920,11 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         if (na < 1u || a[0] >= NTRK)
             return;
         t = &trk[a[0]];
-        lv = a[0] == TRK_DRUM ? &song.g[G_DRLVL] : &t->p[P_LEVEL];
+        lv = &t->p[P_LEVEL];
         if (na >= 4u) {
             *lv = (int16_t)clamp(ed_rv(a + 1), 0, 127);
             t->p[P_MUTE] = (int16_t)(a[3] ? 1 : 0);
-            if (a[0] == TRK_DRUM)                          /* the editor's own change: no push */
-                ed_w.v[P_COUNT + G_DRLVL] = *lv;
-            else
-                ed_known(a[0], P_LEVEL);
+            ed_known(a[0], P_LEVEL);                       /* the editor's own change: no push */
             ed_known(a[0], P_MUTE);
             ui.force = 1;
         }
@@ -975,7 +975,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
                     dstep_set(d, i, (lv >> (2u * i)) & 3u, (rt >> (2u * i)) & 3u);
             fm1_irq_on();
             ui.force = 1;
-            if (song.sel == TRK_DRUM)
+            if (&trk[song.sel] == TDRUM)
                 ed_w.st[a[0]] = ed_step_sig(TDRUM, a[0]);
         }
         on = dstep_mask(d);

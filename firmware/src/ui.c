@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "SLOOP 2.5"  /* the beat machine firmware for the FM-1 (based on Felucca) */
+#define FELUCCA_VERSION "NOTESORCERY 0.1"   /* the groovebox firmware for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -248,8 +248,10 @@ static void go_home(void)
  * writes the sequencer: every pattern is the one the player records or enters. */
 
 /* the parts' sounds at power-on (engine, preset): bass, pad, lead */
-static const uint8_t TRK_DEF[3][2] = {{ENGI_ANALOG, 0}, {ENGI_FM6, 0}, {ENGI_TRIO, 6}};   /* 808 BOOM, TINE EP, SYNC LEAD */
-static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? TRK_DEF[i % 3u][0] : 0u; }
+/* the power-on sounds of tracks 1..6: 808 BOOM, TINE EP, SYNC LEAD, WARM PAD, GLASS BELL, GRAND PNO */
+static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ANALOG, 0}, {ENGI_FM6, 0}, {ENGI_TRIO, 6}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1},
+                                          {ENGI_SAMPLE, 0}};
+static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? TRK_DEF[i][0] : 0u; }
 
 static int seq_is_empty(const track_t *t) { return track_empty(t); }
 
@@ -431,7 +433,7 @@ static void preset_go(uint32_t n)                    /* load list index n into t
  * LEVEL and REV (GLO > DRUMS), PAN and LEN */
 static const param_desc_t *home_param(uint32_t k, int16_t **vp)
 {
-    static const uint8_t DRUM_HOME[4][2] = {{1, G_DRLVL}, {1, G_DRREV}, {0, P_PAN}, {0, P_SLEN}};
+    static const uint8_t DRUM_HOME[4][2] = {{0, P_LEVEL}, {1, G_DRREV}, {0, P_PAN}, {0, P_SLEN}};
     uint32_t id;
     if (is_drum(TSEL)) {
         id = DRUM_HOME[k & 3u][1];

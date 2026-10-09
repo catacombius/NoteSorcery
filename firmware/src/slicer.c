@@ -19,7 +19,7 @@
  * from the steps), the track's + the global SWING as the sequencer has them (seq.c trk_grid); sample
  * exact. With the SLICER OFF and no ramp left, the signal is not touched. */
 #define SL_NPAT 16
-#define SL_LEN 4096u                    /* recording, 22.05 kHz samples a track: 186 ms, 8 KB */
+#define SL_LEN 2048u                    /* recording, 22.05 kHz samples a track: 93 ms, 4 KB (NoteSorcery: 8 tracks; SLOOP had 186 ms) */
 #define SL_RAMP_LOG2 7
 #define SL_RAMP (1 << SL_RAMP_LOG2)     /* 128 samples, 2.9 ms */
 #define SL_SLOPE (32768 / SL_RAMP)
@@ -175,20 +175,19 @@ static int slicer_busy(const track_t *t)
     return s->w || (t->p[P_SLCR] == SL_STUT && s->loop);
 }
 
-/* the drum track: as drums_render, through the SLICER when it is on (or still fading) */
-static void slicer_drums(int32_t *ml, int32_t *mr, int32_t *rev, int32_t *dly, uint32_t n)
+/* a drum track: as drums_render, through the SLICER when it is on (or still fading) */
+static void slicer_drums(track_t *t, int32_t *ml, int32_t *mr, int32_t *rev, int32_t *dly, uint32_t n)
 {
-    const track_t *t = TDRUM;
-    const sl_t *s = &sl[TRK_DRUM];
+    const sl_t *s = &sl[t - trk];
     uint32_t i;
     if (t->p[P_SLCR] == SL_OFF && !s->gc && !s->w) {
         slicer_track(t, 0, n);
-        drums_render(ml, mr, rev, dly, n);
+        drums_render(t, ml, mr, rev, dly, n);
         return;
     }
     for (i = 0; i < n; i++)
         sl_dbuf[i] = 0;
-    drums_render_mono(sl_dbuf, n);
+    drums_render_mono(t, sl_dbuf, n);
     slicer_track(t, sl_dbuf, n);
     {
         int32_t send = song.g[G_DRREV] * 258, dsend = song.g[G_DRDLY] * 258, pan = t->p[P_PAN];

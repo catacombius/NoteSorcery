@@ -53,11 +53,24 @@ static volatile uint8_t panic_req;       /* bit per track: release every soundin
 
 static uint32_t trk_index(const track_t *t) { return (uint32_t)(t - trk); }
 
+/* the drum channel (GLO > DRUMS CH, 0..15): drum track 1 plays it, drum track 2 the next one */
+static uint32_t drum_ch0(void) { return song.g[G_DRCH] ? (uint32_t)song.g[G_DRCH] - 1u : 9u; }
 static uint32_t trk_midi_ch(uint32_t i)    /* MIDI channel 0..15 of track i (keys -> MIDI out) */
 {
     if (i < NPART)
-        return i;
-    return song.g[G_DRCH] ? (uint32_t)song.g[G_DRCH] - 1u : 9u;
+        return i;                              /* synth tracks 1..6: channels 1..6 */
+    return (drum_ch0() + (i - TRK_DRUM)) & 15u;   /* drum tracks: 10 and 11 by default */
+}
+/* MIDI in: the drum track a channel plays (0, 1), -1 = none (channel 0 = off) */
+static int32_t midi_drum_of(uint32_t ch)
+{
+    uint32_t d;
+    if (!song.g[G_DRCH])
+        return -1;
+    for (d = 0; d < NDRUMTRK; d++)
+        if (((drum_ch0() + d) & 15u) == ch)
+            return (int32_t)d;
+    return -1;
 }
 
 /* MIDI OUT of what the sequencer, the arp and the rolls play (GLO > SYSTEM > MIDI = SEQ; the keys always
@@ -1110,13 +1123,13 @@ static void arm_start(track_t *t)
     }
 }
 
-static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec);
+static void drum_input(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat, int rec);
 static const uint8_t *in_chord;                    /* input_on's note is note in_chord_i of in_chord (CHORD+) */
 static uint32_t in_chord_n, in_chord_i;
 static void input_on(track_t *t, uint32_t note, uint32_t vel)
 {
-    if (is_drum(t)) {                             /* (a GM note on the drum track: its lane) */
-        drum_input(lane_of_note(note), vel_lvl(vel), 0, 1);
+    if (is_drum(t)) {                             /* (a GM note on a drum track: its lane) */
+        drum_input(t, lane_of_note(note), vel_lvl(vel), 0, 1);
         return;
     }
     last_note = (uint8_t)note;
@@ -1138,7 +1151,7 @@ static void input_on(track_t *t, uint32_t note, uint32_t vel)
 static void input_off(track_t *t, uint32_t note)
 {
     if (is_drum(t)) {
-        if (ft_on && ft_trk == TRK_DRUM)
+        if (ft_on && ft_trk == trk_index(t))
             ft_note_off(lane_of_note(note));
         return;
     }
@@ -1151,15 +1164,14 @@ static void input_off(track_t *t, uint32_t note)
 
 /* a drum hit from a key, MIDI or a roll: lane, level; rat: its ratchet when recorded (rolls); rec: it
  * may be recorded (a roll records one hit a step) */
-static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
+static void drum_input(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
 {
-    track_t *t = TDRUM;
     lane &= 15u;
     pen_lane = (uint8_t)lane;
     arm_start(t);
-    if (ft_on && ft_trk == TRK_DRUM)
+    if (ft_on && ft_trk == trk_index(t))
         ft_note_on(lane, lvl);
-    if (rec && ((song.rec >> TRK_DRUM) & 1u) && song.playing)
+    if (rec && ((song.rec >> trk_index(t)) & 1u) && song.playing)
         rec_hit(t, lane, lvl, rat);
     trk_note_on(t, LANE_NOTE[lane], lvl_vel(lvl, 100));
 }
@@ -1208,7 +1220,7 @@ static void roll_hit(uint32_t r)
         roll[r].rec_abs = abs;
     }
     if (is_drum(t)) {
-        drum_input(roll[r].note, roll[r].lvl, rat, rec || !armed);
+        drum_input(t, roll[r].note, roll[r].lvl, rat, rec || !armed);
         seq_out_on(t, LANE_NOTE[roll[r].note & 15u], lvl_vel(roll[r].lvl, 100));
         return;
     }
@@ -1251,12 +1263,12 @@ static void roll_start(uint32_t k, track_t *t, uint32_t note, uint32_t lvl)
 
 static void roll_end(uint32_t r)
 {
-    if (roll[r].on && roll[r].off && roll[r].trk != TRK_DRUM) {
+    if (roll[r].on && roll[r].off && roll[r].trk < TRK_DRUM) {
         trk_note_off(&trk[roll[r].trk % NTRK], roll[r].note);
         seq_out_off(&trk[roll[r].trk % NTRK], roll[r].note);
     }
-    if (roll[r].on && roll[r].trk == TRK_DRUM)
-        seq_out_off(&trk[TRK_DRUM], LANE_NOTE[roll[r].note & 15u]);
+    if (roll[r].on && roll[r].trk >= TRK_DRUM)
+        seq_out_off(&trk[roll[r].trk % NTRK], LANE_NOTE[roll[r].note & 15u]);
     roll[r].on = 0;
 }
 
@@ -1410,7 +1422,8 @@ static void key_down(uint32_t k)
             return;
         }
         kb_kind[k] = KS_DRUM;
-        drum_input(lane, lvl, 0, 1);
+        kb_trk[k] = (uint8_t)trk_index(t);
+        drum_input(t, lane, lvl, 0, 1);
         mc = trk_midi_ch(sel);
         midi_out_event(0x09u | (0x90u | mc) << 8 | (uint32_t)LANE_NOTE[lane] << 16 | lvl_vel(lvl, 100) << 24);
         return;
@@ -1494,9 +1507,9 @@ static void key_up(uint32_t k)
         }
         return;
     case KS_DRUM:
-        if (ft_on && ft_trk == TRK_DRUM)
+        if (ft_on && ft_trk == kb_trk[k])
             ft_note_off(kb_nt[k][0]);
-        mc = trk_midi_ch(TRK_DRUM);
+        mc = trk_midi_ch(kb_trk[k] % NTRK);
         midi_out_event(0x08u | (0x80u | mc) << 8 | (uint32_t)LANE_NOTE[kb_nt[k][0] & 15u] << 16);
         return;
     default:
@@ -1994,8 +2007,9 @@ static void seq_tick(track_t *t, uint32_t adv)
 /* MIDI in: the track a channel plays (0..15) */
 static track_t *midi_track(uint32_t ch)
 {
-    if (song.g[G_DRCH] && ch + 1u == (uint32_t)song.g[G_DRCH])
-        return TDRUM;
+    int32_t d = midi_drum_of(ch);
+    if (d >= 0)
+        return &trk[TRK_DRUM + (uint32_t)d];
     return ch < NPART ? &trk[ch] : TSEL;
 }
 
@@ -2005,8 +2019,8 @@ static uint8_t midi_sel_on[16][128];                  /* per channel and note: t
 static track_t *midi_route(uint32_t ch, uint32_t note, int on)
 {
     track_t *t = midi_track(ch);
-    if (ch < NPART || (song.g[G_DRCH] && ch + 1u == (uint32_t)song.g[G_DRCH]))
-        return t;                                     /* a part's own channel, or the drum channel */
+    if (ch < NPART || midi_drum_of(ch) >= 0)
+        return t;                                     /* a part's own channel, or a drum channel */
     if (on)
         midi_sel_on[ch & 15u][note & 127u] = (uint8_t)(song.sel + 1u);
     else if (midi_sel_on[ch & 15u][note & 127u]) {
@@ -2017,12 +2031,13 @@ static track_t *midi_route(uint32_t ch, uint32_t note, int on)
 }
 
 /* SLOOP 2.5: MIDI CCs set track parameters, after Felucca 1.1.5's standard CC map (#103, Leo Kuroshita).
- * A CC acts on the track its channel plays, as the notes do (1-3 the synths, the drum channel the drum
- * track, 4-16 the selected track), and sets its parameter as a knob would: 0..127 over the parameter's
+ * A CC acts on the track its channel plays, as the notes do (1-6 the synths, the drum channels the drum
+ * tracks, the others the selected track), and sets its parameter as a knob would: 0..127 over the parameter's
  * range, 64 the middle of a bipolar one. 5 GLIDE, 7 LEVEL, 10 PAN, 71 the engine's resonance (RES or Q;
  * an engine without one ignores it), 72 / 73 / 75 release / attack / decay, 74 the track's FILTER (64 off,
  * below a low-pass, above a high-pass: on every engine and the drums), 91 / 93 / 94 the reverb, chorus and
- * delay sends. The drum track takes 7, 91 and 94 as GLO > DRUMS LVL, REV and DLY (2.5), and 10 and 74. */
+ * delay sends. A drum track takes 7, 10 and 74 as its own LEVEL, PAN and FILTER, 91 and 94 as the drum bus's
+ * REV and DLY (GLO > DRUMS). */
 #define MCC_RES 0xFFu
 static const uint8_t MIDI_CC_MAP[][2] = {
     {5, P_GLIDE}, {7, P_LEVEL}, {10, P_PAN}, {71, MCC_RES}, {72, P_REL}, {73, P_ATK}, {74, P_TFLT}, {75, P_DEC},
@@ -2039,11 +2054,11 @@ static void __attribute__((noinline)) midi_cc(track_t *t, uint32_t cc, uint32_t 
     if (id == 0xFFFFu)
         return;
     if (is_drum(t)) {
-        if (id == P_LEVEL || id == P_REV || id == P_DLY) {
-            id = id == P_LEVEL ? G_DRLVL : id == P_REV ? G_DRREV : G_DRDLY;
+        if (id == P_REV || id == P_DLY) {
+            id = id == P_REV ? G_DRREV : G_DRDLY;
             d = &GP[id];
             slot = &song.g[id];
-        } else if (id == P_PAN || id == P_TFLT) {
+        } else if (id == P_LEVEL || id == P_PAN || id == P_TFLT) {
             d = &TP[id];
             slot = &t->p[id];
         }
@@ -2281,7 +2296,7 @@ static void events_block(uint32_t n)
         t = midi_route(ch, d1, st == 0x90u && d2);
         if (is_drum(t)) {
             if (st == 0x90u && d2)
-                drum_input(lane_of_note(d1), vel_lvl(d2), 0, 1);
+                drum_input(t, lane_of_note(d1), vel_lvl(d2), 0, 1);
         } else if (st == 0x90u && d2) {
             input_on(t, d1, d2);
         } else {
