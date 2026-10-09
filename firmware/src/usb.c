@@ -743,9 +743,10 @@ static void midi_in_event(uint32_t pkt)
         sx_collect = 0;
 #endif
     }
-    if (cin == 0xFu && (st == 0xF8u || st == 0xFAu || st == 0xFBu || st == 0xFCu)) {   /* clock, transport */
+    if ((cin == 0xFu && (st == 0xF8u || st == 0xFAu || st == 0xFBu || st == 0xFCu)) ||
+        (cin == 3u && st == 0xF2u)) {                  /* clock, transport; SONG POSITION (NoteSorcery: its data) */
         if (mi_w - mi_r < MQ) {
-            midi_in_q[mi_w % MQ] = 0xFu | st << 8;
+            midi_in_q[mi_w % MQ] = 0xFu | st << 8 | (st == 0xF2u ? pkt & 0x7F7F0000u : 0u);
             RING_PUBLISH();
             mi_w++;
         }

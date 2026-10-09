@@ -716,7 +716,8 @@ const CMD = { INFO: 1, GET: 2, SET: 3, DUMP: 4, DESC: 5, STEP_GET: 6, STEP_SET: 
   LOCK_GET: 37, LOCK_SET: 38, MICRO_GET: 39, MICRO_SET: 40,     /* v7 (SLOOP 2.4): parameter locks, nudges */
   FILL_GET: 41, FILL_SET: 42,                         /* v8 (SLOOP 2.4): the steps' fill conditions */
   FM6_GET: 68, FM6_PUT: 69, FM6_LIST: 70, FM6_ERASE: 71,    /* v9 (SLOOP 2.4): the FM6 engine's patches (Felucca 1.0's numbers) */
-  DSYN_LIST: 72, DSYN_GET: 73, DSYN_PUT: 74, DSYN_STORE: 75, DSYN_PLAY: 76 };   /* v10 (SLOOP 2.5): the SYN drum kits */
+  DSYN_LIST: 72, DSYN_GET: 73, DSYN_PUT: 74, DSYN_STORE: 75, DSYN_PLAY: 76,   /* v10 (SLOOP 2.5): the SYN drum kits */
+  NSX_CAPS: 80, NSX_TRANSPORT: 81, NSX_TEMPO: 82 };   /* v11 (NoteSorcery): docs/NSX_PROTOCOL.md */
 /* v7: the parameters a step can lock (firmware seq.c p_lockable: the sound, not the sequencer / arp / key / voice
    mode); ids as core.h: LEVEL .. LFO dests, GATE, the sends, GLIDE, PAN, DETUNE, the SLICER, the engine's 8 */
 const lockable = (id) => id <= 16 || id === 32 || (id >= 33 && id <= 36) || id === 38 || id === 39 || id === 44 || (id >= 45 && id <= 48) || id === 50 || (id >= 53 && id <= 60);

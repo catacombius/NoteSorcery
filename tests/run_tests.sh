@@ -58,6 +58,10 @@ $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drumkit_test" tests/drumkit_test.
 run "synthesised drum kits: every kit x sound bounded, audible, finite, levels, cost" "$OUT/drumkit_test" "$OUT/drum-kits.wav" "$OUT/drum-kits.txt"
 $CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/drumcm_test" tests/drumcm_test.c -lm
 run "808 CM / 909 CM: X0X's circuit kits in one shared slot, the synthesised fallback, levels, cost" "$OUT/drumcm_test"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/clock_test" tests/clock_test.c -lm
+run "MIDI clock out (24 ppqn, START / STOP, TRS passed on) and SONG POSITION in (USB, TRS)" "$OUT/clock_test"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/nsx_test" tests/nsx_test.c -lm
+run "NSX (editor protocol v11): CAPS, TRANSPORT, TEMPO" "$OUT/nsx_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/userkit_test" tests/userkit_test.c -lm
 run "user drum kits (KIT USR1..USR3): a user slot's sounds on the drum lanes" "$OUT/userkit_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/dsyn_test" tests/dsyn_test.c -lm

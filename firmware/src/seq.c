@@ -77,6 +77,9 @@ static int32_t midi_drum_of(uint32_t ch)
  * go out: key_down / key_up). Notes from a computer or the jack are never echoed (no MIDI loop). A set per
  * track of the notes sent on, so a note is ended once, and STOP or MIDI = KEYS end them all */
 static uint32_t mo_set[NTRK][4];
+/* GLO > SYSTEM > MIDI (G_MIDI): what goes to MIDI OUT besides the keys (bits) */
+#define MOUT_SEQ 1                          /* the sequencer's notes */
+#define MOUT_CLK 2                          /* NoteSorcery: the clock (clock_out) */
 static void seq_out_off(const track_t *t, uint32_t note)
 {
     uint32_t i = trk_index(t) % NTRK;
@@ -89,7 +92,7 @@ static uint8_t mo_any;                     /* something was sent on since the la
 static void seq_out_on(const track_t *t, uint32_t note, uint32_t vel)
 {
     uint32_t i = trk_index(t) % NTRK;
-    if (!song.g[G_MIDI] || note > 127u)
+    if (!(song.g[G_MIDI] & MOUT_SEQ) || note > 127u)
         return;
     seq_out_off(t, note);                      /* played again while on: off first */
     mo_set[i][note >> 5] |= 1u << (note & 31u);
@@ -2093,25 +2096,38 @@ static struct {
     uint32_t beat_ms;            /* when pulse 0 of the last 24 came: the tempo */
     uint8_t have, n24;           /* a pulse since START; pulses towards the next tempo reading */
     uint8_t alive;               /* pulses are coming (from the SYNC source) */
+    uint16_t spp;                /* NoteSorcery: the Song Position Pointer (16ths) the next CONTINUE starts at */
+    uint8_t spp_set;
 } mclk;
+static uint32_t spp_start = 0xFFFFFFFFu;          /* a CONTINUE after an SPP: the sequencer starts there (16ths) */
 
 static int mclk_on(void)                          /* the clock drives the sequencer */
 {
     return song.g[G_SYNC] && mclk.alive && fm1_ms - mclk.last_ms < 500u;
 }
 
-static void mclk_event(uint32_t st, uint32_t src)  /* a realtime message; src 1 USB, 2 TRS */
+static void mclk_event(uint32_t st, uint32_t src, uint32_t data)   /* a realtime message (or SPP); src 1 USB, 2 TRS */
 {
     uint32_t now = fm1_ms;
     if (!song.g[G_SYNC] || src != (uint32_t)song.g[G_SYNC])
         return;
+    if (st == 0xF2u) {                             /* NoteSorcery: SONG POSITION (16ths), for the next CONTINUE */
+        mclk.spp = (uint16_t)((data & 0x7Fu) | ((data >> 8) & 0x7Fu) << 7);
+        mclk.spp_set = 1;
+        return;
+    }
     if (st == 0xFAu || st == 0xFBu) {              /* START: from the top; CONTINUE: on from where it stopped */
         mclk.pos = mclk.done = 0;
         mclk.have = 0;
-        if (st == 0xFAu)
+        if (st == 0xFAu) {
             transport_req = 3;                     /* (not 1: the master counts, never a count-in) */
-        else if (!song.playing)
+        } else if (mclk.spp_set && !song.playing) {
+            spp_start = mclk.spp;                  /* CONTINUE after a SONG POSITION (Live: play from a marker) */
+            transport_req = 3;
+        } else if (!song.playing) {
             song.playing = 1;
+        }
+        mclk.spp_set = 0;
         return;
     }
     if (st == 0xFCu) {                             /* STOP */
@@ -2164,12 +2180,54 @@ static uint32_t mclk_adv(uint32_t n)               /* units to advance this bloc
     return adv;
 }
 
+/* NoteSorcery: MIDI clock out (GLO > SYSTEM > MIDI = KEYS+CLK / SEQ+CLK) to USB: 24 pulses a beat while the
+ * sequencer plays, START when it starts (with SONG POSITION 0 first), STOP when it stops. Counted from the units
+ * the sequencer moves (not its position, which song mode puts back to the bar), so the pulses run on across
+ * sections; sent at the block they fall in (0.73 ms). The FM-1 is then the master of Ableton Live (or of
+ * another FM-1, through a USB host); following USB itself (SYNC = USB), it sends none (no loop back to the
+ * master); following TRS, it passes that clock on to USB. */
+#define CO_PULSE_U (BEAT_U / 24u)
+static struct {
+    uint32_t u;                  /* units since the last pulse */
+    uint32_t pulses;             /* sent since START (the host tests count them) */
+    uint8_t run;                 /* START sent, STOP not yet */
+} clko;
+static int clock_out_on(void) { return (song.g[G_MIDI] & MOUT_CLK) && song.g[G_SYNC] != 1; }
+static void clock_out(uint32_t adv)
+{
+    if (!clock_out_on()) {
+        if (clko.run)
+            midi_out_event(0x0Fu | 0xFCu << 8);    /* (turned off while running: STOP, so no host hangs on) */
+        clko.run = 0;
+        return;
+    }
+    if (song.playing && !clko.run) {
+        midi_out_event(0x03u | 0xF2u << 8);        /* SONG POSITION 0, START, the first pulse (the downbeat) */
+        midi_out_event(0x0Fu | 0xFAu << 8);
+        midi_out_event(0x0Fu | 0xF8u << 8);
+        clko.run = 1;
+        clko.pulses = 1;
+        clko.u = adv;                              /* (this block played from position 0) */
+    } else if (!song.playing && clko.run) {
+        midi_out_event(0x0Fu | 0xFCu << 8);
+        clko.run = 0;
+        return;
+    } else if (clko.run) {
+        clko.u += adv;
+    }
+    while (clko.run && clko.u >= CO_PULSE_U) {
+        clko.u -= CO_PULSE_U;
+        midi_out_event(0x0Fu | 0xF8u << 8);
+        clko.pulses++;
+    }
+}
+
 /* everything that happens between two rendered blocks: transport, input, the steps of every
  * track at the clock, the click, the rolls and the arps; then the clock moves on by n samples */
 static void events_block(uint32_t n)
 {
     uint32_t i, pr, adv;
-    if (mo_any && !song.g[G_MIDI]) {            /* MIDI = KEYS again: end what the sequencer had sent */
+    if (mo_any && !(song.g[G_MIDI] & MOUT_SEQ)) {   /* MIDI = KEYS again: end what the sequencer had sent */
         seq_out_all_off();
         mo_any = 0;
     }
@@ -2190,9 +2248,14 @@ static void events_block(uint32_t n)
             click_on(1);
         } else {
             seq_start();
+            if (ext && spp_start != 0xFFFFFFFFu && song.playing) {   /* (SONG POSITION: the patterns from there) */
+                clk_beat = spp_start / 4u;
+                clk_pos = spp_start % 4u * (BEAT_U / 4u);
+            }
             if (rec_wait && song.playing)
                 rec_begin();                        /* PLAY while armed: record from the top */
         }
+        spp_start = 0xFFFFFFFFu;
     } else if (transport_req == 2u) {
         seq_stop();
         transport_req = 0;
@@ -2282,7 +2345,7 @@ static void events_block(uint32_t n)
         track_t *t;
         mi_r++;
         if ((pkt & 15u) == 0xFu) {                    /* clock / transport: cable 0 USB, 1 TRS */
-            mclk_event((pkt >> 8) & 0xFFu, ((pkt >> 4) & 15u) ? 2u : 1u);
+            mclk_event((pkt >> 8) & 0xFFu, ((pkt >> 4) & 15u) ? 2u : 1u, pkt >> 16);
             continue;
         }
         if (st == 0xB0u) {                            /* a CC (IN = CLOCK: none) */
@@ -2322,4 +2385,5 @@ static void events_block(uint32_t n)
         arr_elapse(&arrangement_clock, adv, 1u);   /* (units: n x BPM, or the MIDI clock) */
 #endif
     }
+    clock_out(adv);
 }

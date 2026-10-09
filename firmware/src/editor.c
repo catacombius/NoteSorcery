@@ -29,7 +29,8 @@ enum { ED_INFO = 1, ED_GET, ED_SET, ED_DUMP, ED_DESC, ED_STEP_GET, ED_STEP_SET, 
        ED_FILL_GET, ED_FILL_SET,                                                /* v8: fill conditions */
        ED_FM6_GET = 68, ED_FM6_PUT, ED_FM6_LIST, ED_FM6_ERASE };                /* v9: FM6 patches (Felucca's numbers) */
 /* v10 (SLOOP 2.5): DSYN_LIST .. DSYN_PLAY = 72..76, editor_dsyn.c; backup object 9 = the SYN kits */
-#define ED_PROTO 10u                                   /* the protocol version INFO ends with */
+/* v11 (NoteSorcery): NSX_CAPS .. NSX_TEMPO = 80..82, editor_nsx.c (docs/NSX_PROTOCOL.md) */
+#define ED_PROTO 11u                                   /* the protocol version INFO ends with */
 
 static uint8_t ed_out[600];
 static uint32_t ed_n;
@@ -606,6 +607,7 @@ static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* no flash:
 
 #include "editor_fm6.c"                               /* v9: the FM6 patches (68..71) */
 #include "editor_dsyn.c"                              /* v10: the SYN drum kits (72..76) */
+#include "editor_nsx.c"                               /* v11: NoteSorcery's NSX commands (80..) */
 
 static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0 and F7 */
 {
@@ -624,6 +626,10 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         return;
     }
     if (ed_dsyn_handle(cmd, a, na)) {                      /* v10: the SYN drum kits */
+        ed_send();
+        return;
+    }
+    if (ed_nsx_handle(cmd, a, na)) {                       /* v11: NSX */
         ed_send();
         return;
     }

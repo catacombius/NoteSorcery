@@ -644,8 +644,8 @@ static void sections_flush(void)                        /* main loop */
         lights_sync = (uint8_t)song.g[G_SYNC];
         settings_later = 1;
     }
-    if ((uint32_t)(song.g[G_MIDI] != 0) != lights_mout) {   /* GLO > SYSTEM > MIDI: the same */
-        lights_mout = (uint8_t)(song.g[G_MIDI] != 0);
+    if ((uint32_t)(song.g[G_MIDI] & 3) != lights_mout) {    /* GLO > SYSTEM > MIDI: the same */
+        lights_mout = (uint8_t)(song.g[G_MIDI] & 3);
         settings_later = 1;
     }
     if ((uint32_t)(song.g[G_ROUTE] != 0) != lights_min) {   /* GLO > SYSTEM > IN: the same */
