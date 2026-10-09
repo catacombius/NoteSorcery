@@ -4,8 +4,9 @@
 Free and open source (GPL-3.0-only). Built on [SLOOP](https://github.com/isod89/sloop-fm1) by isod89,
 which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita / Hügelton Instruments.
 
-> **Status: in development (0.1).** Milestone 1 is done: eight tracks, the new project format and the engine
-> set's base. The rest of the roadmap is below. Install at your own risk and back up first: NoteSorcery does
+> **Status: in development (0.1).** Milestones 1, 2 and 6 are done: eight tracks, the new project format, the
+> ACID / WAVE engines, the circuit and Machinedrum-style drum kits, and Ableton export from the browser. The
+> rest of the roadmap is below. Install at your own risk and back up first: NoteSorcery does
 > not read SLOOP's projects, and its sample slots are smaller (see [Differences from SLOOP](#differences-from-sloop)).
 
 ## What it is
@@ -16,11 +17,19 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 - **A step sequencer on the keys:** hold SEQ and the 16 white keys are the 16 steps of the page (black keys
   1–4 pick pages 1–4, 64 steps a track). There are also parameter locks, nudges, ratchets, chance by fill,
   chords, song mode and quick chains (from SLOOP).
-- **Engines:** ANALOG (virtual analog, with an ACID 303 preset), TRIO (three-oscillator VA), FM6 (six-operator
-  DX7-style FM, .syx import) and SAMPLE (multisamples: grand piano and GM kit built in, plus four slots of your
-  own).
-- **Drum kits:** SLOOP's 32 synthesised kits (808, 909, 606, house, techno…), the GM sample kit and your own
-  kits (user sample slots, SYN1–SYN4).
+- **Engines:** ANALOG (virtual analog), TRIO (three-oscillator VA), FM6 (six-operator DX7-style FM, .syx
+  import), SAMPLE (multisamples: grand piano and GM kit built in, plus four slots of your own), **ACID** (a
+  TB-303: X0X's Open303 port, accent from velocity, slide from the sequencer; TOOLS → GEN writes a TB-3PO line)
+  and **WAVE** (single-cycle waves: 24 built in, band-limited, A/B morph, 15 slots of your own).
+- **Drum kits:** **808 CM** and **909 CM** (X0X's circuit-modelled TR-808 and TR-909; one drum track at a time
+  plays the circuit, the other gets the synthesised machine), three **Machinedrum-style** kits (MD EFM: 2-op FM
+  drums, MD TRX, MD SRR; in the manner of Elektron's machines, not affiliated), SLOOP's synthesised kits (808,
+  909, 606, house, techno…), the GM sample kit and your own kits (user sample slots, SYN1–SYN4). Power-on: track
+  7 on 808 CM, track 8 on MD EFM.
+- **Ableton Live, no app needed:** the browser editor's PROJECTS page exports the working project and song
+  sections A–D as a Live Set (`.als`, Live 11 / 12: eight MIDI tracks, the sections as scenes and in the
+  arrangement) or a MIDI file, from the FM-1 or from a saved backup file. The notes are what the FM-1 plays:
+  swing, nudges, ties, slides, ratchets and dynamics included.
 - **USB-C:** class-compliant MIDI in/out with clock in, and USB audio from the FM-1 to your computer or phone
   (44.1 / 48 kHz).
 
@@ -29,11 +38,11 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 | Milestone | What | State |
 |---|---|---|
 | 1 | Eight tracks (6 synth + 2 drums), new project format (NSP1), legacy engines removed | **done** |
-| 2 | ACID (Open303 + TB-3PO), WAVE (single-cycle), circuit-modelled 808 / 909, Machinedrum-style synth drums | planned |
+| 2 | ACID (Open303 + TB-3PO), WAVE (single-cycle), circuit-modelled 808 / 909, Machinedrum-style synth drums | **done** |
 | 3 | 8 × 16 visual sequencer screen, OP-1-style screens, themes (colours, dark / light, brightness), night mode | planned |
 | 4 | MIDI clock **out** and Song Position Pointer for Ableton Live and other FM-1s; per-track MIDI out; NSX SysEx protocol | planned |
 | 5 | Live sampling: the FM-1 as a USB audio output (record what a phone or computer plays), sample and SoundFont upload | planned |
-| 6 | Ableton Live `.als` and `.mid` export from the browser editor, with no app needed | planned |
+| 6 | Ableton Live `.als` and `.mid` export from the browser editor, with no app needed | **done** |
 | 7 | Integration with the FieldTape and NoteMove Android apps | planned |
 
 ## Tracks and channels

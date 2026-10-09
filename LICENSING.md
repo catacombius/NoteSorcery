@@ -3,6 +3,15 @@
 NoteSorcery is built on SLOOP (isod89, <https://github.com/isod89/sloop-fm1>), which is built on Felucca (Leo
 Kuroshita / Hügelton Instruments). It carries both projects' licence unchanged: the code is GPL-3.0-only and the
 Felucca Assets are combined under the section 7 permission below. NoteSorcery's own changes are GPL-3.0-only too.
+NoteSorcery also contains:
+
+- `firmware/src/x0x/`: DSP from X0X (Charles Vestal, <https://github.com/charlesvestal/fm1-x0x>, GPL-3.0-only): the
+  TB-303 voice (Open303 by Robin Schmidt, MIT, `LICENSES/MIT-Open303.txt`), 8W8's TR-808 (its rim shot from
+  Yoshinosuke Horiuchi's sc808, MIT) and 9W9's TR-909 (grown out of Matthew Cieplak's ER-99, GPL-3.0). See
+  `firmware/src/x0x/README.md`.
+- `web/als/`: the Ableton Live Set and MIDI writers and the Live set templates, ported from NoteMove
+  (catacombius), contributed by its author under GPL-3.0-only.
+
 What follows is Felucca's licensing text, kept as it is, with the third-party table brought up to date for
 what NoteSorcery builds.
 

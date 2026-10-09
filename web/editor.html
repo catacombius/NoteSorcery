@@ -673,6 +673,13 @@
           <input id="bk-file" type="file" accept=".json,application/json" hidden></p>
         <progress id="bk-prog" max="1" value="0" hidden></progress>
       </div>
+      <div class="card" id="ablgroup">
+        <h2 data-t="ablTitle" data-ic="symbol_download"></h2>
+        <p class="dim" data-t="ablHelp"></p>
+        <p class="bar"><button id="abl-als" class="pri" data-t="ablAls"></button> <button id="abl-mid" data-t="ablMid"></button>
+          <button id="abl-file" data-t="ablFile"></button>
+          <input id="abl-in" type="file" accept=".json,application/json" hidden></p>
+      </div>
     </section>
 
     <section class="panel" id="p-settings" data-tab="settings" data-dev hidden>
@@ -688,6 +695,11 @@
       <a href="FUKIAI-LICENSE.txt" data-t="iconsCredit"></a> · <span data-t="fontCredit"></span></footer>
   </main>
 </div>
+<script type="module">
+/* NoteSorcery: the Ableton export (als/nsals.js) for the PROJECTS page; loaded on its own, the page works without it */
+import * as NSAls from "./als/nsals.js";
+window.NSAls = NSAls;
+</script>
 <script>
 "use strict";
 /*PROTO-BEGIN*/
@@ -1692,10 +1704,11 @@ function b64dec(s) {
 const BK = { FORMAT: "sloop-backup", VERSION: 1, SAMPLES: [32, 33, 34, 35], RESTORE: [6, 7, 8, 9, 2, 3, 4, 5, 0, 1] };
 class BackupError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 /* read everything; progress(done, total bytes) */
-async function backupCapture(rq, info, progress = () => {}) {
+async function backupCapture(rq, info, progress = () => {}, only = null) {
   const L = parse[CMD.BK_LIST](await rq(req.bkList(), { timeout: 5000, retries: 0 }));
   if (L.rc) throw new BackupError("bkRc" + L.rc, `LIST rc ${L.rc}`);
-  const total = L.items.reduce((s, it) => s + it.len, 0), objects = [];
+  if (only) L.items = L.items.filter((it) => only.includes(it.id));   /* (NoteSorcery's export: the projects only) */
+  const total = L.items.reduce((s, it) => s + it.len, 0) || 1, objects = [];
   let done = 0;
   for (const it of L.items) {
     const data = new Uint8Array(it.len);
@@ -3513,6 +3526,9 @@ const TEXT = {
     mixer: "ミキサー", mixHelp: "本体の TRACKS ページと同じ 4 トラック。フェーダーはレベル（ドラムは GLO > DRUMS LEVEL）。パンはどのトラックも選択を変えずに書き込みます（0.8 のファームウェアでは一瞬そのトラックを選びます）。REC は本体での録音待機の表示です。",
     level: "レベル", pan: "パン", mute: "ミュート", rec: "REC", selectTrack: "選択", selectedTrack: "選択中",
     projHelp: "プロジェクトは本体の状態をまとめて保存します: 4 トラックの音色とパターン、選択中のトラック、グローバル設定。",
+    ablTitle: "Ableton Live へ", ablHelp: "FM-1 でスケッチして、PC の Ableton Live で続けましょう。今の曲とソングのセクション A〜D が 8 つの MIDI トラックとシーンになります（.als: Live 11 / 12）。Android は要りません。FM-1 なしでも、保存したバックアップファイルから書き出せます。",
+    ablAls: "Live セット (.als) を書き出す", ablMid: "MIDI ファイル (.mid)", ablFile: "バックアップファイルから…", ablDone: "書き出しました: シーン × ノート ",
+    ablEmpty: "書き出すノートがありません", ablBad: "読めないプロジェクトです: ", ablNoLib: "書き出し機能を読み込めませんでした（als/nsals.js）",
     bkTitle: "バックアップ", bkHelp: "FM-1 の中身をすべて 1 つのファイルに保存します: 今の曲、プロジェクト 1〜4（ソングのセクション A〜D）、ユーザープリセット、FM6 の音色バンク、サンプル USR1〜4、設定（色、キャリブレーション、ソング、ライト）。復元すると、本体はファイルの状態に戻ります（今の内容は上書きされます）。",
     bkSave: "バックアップを保存", bkLoad: "ファイルから復元", bkSaving: "バックアップ中 ", bkSaved: "バックアップを保存しました",
     bkRestoring: "復元中 ", bkRestored: "復元しました", bkConfirm: "FM-1 の今の内容をすべてこのバックアップで置き換えます。続けますか？",
@@ -3711,6 +3727,9 @@ const TEXT = {
     mixer: "Mixer", mixHelp: "The four tracks of the device's TRACKS page. The fader is the level (drums: GLO > DRUMS LEVEL). Pan is written to any track without changing the selection (firmware 0.8: by selecting it for a moment). REC shows a track armed for live recording on the device.",
     level: "Level", pan: "Pan", mute: "Mute", rec: "REC", selectTrack: "Select", selectedTrack: "Selected",
     projHelp: "A project keeps the whole device state: the sound and pattern of all four tracks, the selected track and the global settings.",
+    ablTitle: "To Ableton Live", ablHelp: "Sketch on the FM-1, carry on in Ableton Live on your computer: the music you are working on and the song sections A–D become eight MIDI tracks and scenes (.als, Live 11 and 12). No Android device needed; without the FM-1 at hand, export from a saved backup file.",
+    ablAls: "Export a Live Set (.als)", ablMid: "MIDI file (.mid)", ablFile: "From a backup file…", ablDone: "Exported: scenes × notes ",
+    ablEmpty: "No notes to export", ablBad: "Not a project this editor reads: ", ablNoLib: "The export could not be loaded (als/nsals.js)",
     bkTitle: "Backup", bkHelp: "Everything on the FM-1 in one file: the music you are working on, the projects 1–4 (the song sections A–D), the user presets, the FM6 patch bank, the samples USR1–USR4 and the settings (colours, calibration, the song, the lights). Restoring puts the FM-1 back as it was in the file (what is on it now is replaced).",
     bkSave: "Save a backup", bkLoad: "Restore from a file", bkSaving: "Backing up ", bkSaved: "Backup saved",
     bkRestoring: "Restoring ", bkRestored: "Restored", bkConfirm: "Replace everything on the FM-1 with this backup?",
@@ -7400,6 +7419,37 @@ $("bk-file").addEventListener("change", async () => {
       await afterSoundChange("bkRestored");
     } catch (e) { bkReport(e); } finally { $("bk-prog").hidden = true; }
   });
+});
+
+/* NoteSorcery: export to Ableton Live (.als) or a MIDI file, from the FM-1 (the working project and the song
+   sections A..D: backup objects 0, 2..5) or from a backup file, no device needed (als/nsals.js) */
+async function ablExport(objs, kind) {
+  if (!window.NSAls) { sayK("ablNoLib"); return; }
+  const get = (id) => { const d = objs.get(id); return d && d.length ? d : null; };
+  const name = `FM-1 sketch ${today()}`;
+  let song;
+  try { song = NSAls.songFromDevice({ working: get(0), sections: [2, 3, 4, 5].map(get) }, { name }); }
+  catch (e) { sayK("ablBad", e.message); return; }
+  const notes = song.tracks.reduce((a, tr) => a + Object.values(tr.clips).reduce((b, c) => b + c.notes.length, 0), 0);
+  if (!notes) { sayK("ablEmpty"); return; }
+  if (kind === "mid") downloadBytes(`fm1-sketch-${today()}.mid`, NSAls.midiSong(song, 2));
+  else downloadBytes(`fm1-sketch-${today()}.als`, await NSAls.exportAls(song));
+  sayK("ablDone", `${song.sceneCount} × ${notes}`);
+}
+for (const kind of ["als", "mid"])
+  $(`abl-${kind}`).addEventListener("click", () => op(async () => {
+    if (!dev) return;
+    try {
+      const arc = await backupCapture(rq, dev.info, bkProgress("bkSaving"), [0, 2, 3, 4, 5]);
+      await ablExport(new Map(arc.objects.map((o) => [o.id, b64dec(o.data)])), kind);
+    } catch (e) { bkReport(e); } finally { $("bk-prog").hidden = true; }
+  }));
+$("abl-file").addEventListener("click", () => { $("abl-in").value = ""; $("abl-in").click(); });
+$("abl-in").addEventListener("change", async () => {
+  const f = $("abl-in").files[0];
+  if (!f) return;
+  try { await ablExport(backupObjects(JSON.parse(await f.text())), "als"); }
+  catch (e) { sayK("ablBad", e.message); }
 });
 
 $("libexp1").addEventListener("click", () => {
