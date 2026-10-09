@@ -1,0 +1,7 @@
+{"magic": 827347790, "size": 7604, "P_COUNT": 61, "G_COUNT": 34, "NTRK": 8, "NPART": 6, "NSTEP": 64, "NLOCK": 24,
+ "P": {"LEVEL": 0, "ROOT": 25, "SCALE": 26, "TRANS": 28, "SLEN": 29, "SDIV": 30, "SSWING": 31, "SGATE": 32, "PAN": 39, "MUTE": 40, "E0": 53},
+ "G": {"BPM": 0, "SWING": 1},
+ "ENGINES": ["ANALOG", "TRIO", "FM6", "SAMPLE", "ACID", "WAVE"],
+ "offsets": {"g": 8, "t": 80, "trk": 940, "step": 124, "micro": 764, "lock": 828, "fill": 924, "sum": 7600},
+ "LANE_NOTE": [36, 35, 38, 39, 42, 46, 44, 37, 40, 43, 48, 49, 51, 70, 63, 56],
+ "NSCALES": 16}

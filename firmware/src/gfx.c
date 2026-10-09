@@ -21,34 +21,61 @@ static uint32_t cv_w, cv_h;
 static int32_t cv_oy;            /* y offset for graph drawing */
 
 #define RGB(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
-#define C_BLACK 0x0000u
-#define C_WHITE 0xFFFFu              /* accent only: what is being touched / where we are */
-/* The screen is five steps of one colour, darkest to brightest, plus white.
- * Palettes are picked in the HOME-hold menu (COLOR). */
+/* NoteSorcery themes: a background, a foreground (the accent: what is being touched, where we are) and five steps
+ * of one colour between them, darkest (rules) to brightest (values). C_BLACK and C_WHITE are the theme's background
+ * and foreground, so every screen follows the theme (PAPER: dark on light). The screen's BRIGHT (the backlight
+ * is on / off only) scales every colour, the tracks' and knobs' too (ui_studio.c studio_colors). Picked in the
+ * HOME-hold menu (SCREEN: COLOR, BRIGHT, NIGHT). */
 typedef struct {
     const char *name;
+    uint16_t bg, fg;
     uint16_t c[5];
 } palette_t;
+#define DARK RGB(0, 0, 0), RGB(255, 255, 255)
 static const palette_t PALETTES[] = {
-    {"GREEN", {RGB(0, 40, 12), RGB(0, 84, 30), RGB(16, 140, 54), RGB(56, 200, 92), RGB(120, 255, 146)}},
-    {"AMBER", {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
-    {"CYAN", {RGB(0, 30, 50), RGB(0, 62, 96), RGB(16, 112, 160), RGB(56, 172, 222), RGB(140, 222, 255)}},
-    {"RED", {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
-    {"MONO", {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
+    {"GREEN", DARK, {RGB(0, 40, 12), RGB(0, 84, 30), RGB(16, 140, 54), RGB(56, 200, 92), RGB(120, 255, 146)}},
+    {"AMBER", DARK, {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
+    {"CYAN", DARK, {RGB(0, 30, 50), RGB(0, 62, 96), RGB(16, 112, 160), RGB(56, 172, 222), RGB(140, 222, 255)}},
+    {"RED", DARK, {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
+    {"MONO", DARK, {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
+    /* NoteSorcery */
+    {"OP-1", DARK, {RGB(34, 36, 42), RGB(70, 74, 86), RGB(124, 130, 146), RGB(176, 182, 196), RGB(236, 238, 242)}},
+    {"PAPER", RGB(236, 232, 222), RGB(0, 0, 0), {RGB(204, 198, 186), RGB(158, 152, 140), RGB(108, 104, 96), RGB(64, 60, 54), RGB(18, 18, 16)}},
+    {"CONTRAST", DARK, {RGB(90, 90, 90), RGB(150, 150, 150), RGB(210, 210, 210), RGB(255, 236, 64), RGB(255, 255, 255)}},
 };
+#undef DARK
 #define NPALETTES (sizeof(PALETTES) / sizeof(PALETTES[0]))
 static uint16_t pal[5];
+static uint16_t pal_bg = 0x0000u, pal_fg = 0xFFFFu;   /* (before the settings load: black and white) */
+#define C_BLACK pal_bg               /* the theme's background */
+#define C_WHITE pal_fg               /* the theme's foreground: accent only, what is being touched / where we are */
 #define C_LINE pal[0]                /* 1 rules, separators */
 #define C_DIM pal[1]                 /* 2 inactive, empty steps, units */
 #define C_GRAY pal[2]                /* 3 labels */
 #define C_AMB pal[3]                 /* 4 secondary text */
 #define C_HI pal[4]                  /* 5 values, curves */
 
+/* the screen's brightness: 0 full .. 3 dimmest; NIGHT uses the dimmest */
+#define NBRIGHT 4u
+static const uint8_t BRIGHT_Q8[NBRIGHT] = {255, 176, 112, 64};
+static const char *const BRIGHT_NAME[NBRIGHT] = {"100%", "70%", "45%", "25%"};
+static uint8_t scr_bright;
+static uint16_t rgb_scale(uint32_t c, uint32_t q8)       /* RGB565 x q8 / 255 */
+{
+    uint32_t r = (c >> 11) & 31u, g = (c >> 5) & 63u, b = c & 31u;
+    return (uint16_t)(((r * q8 / 255u) << 11) | ((g * q8 / 255u) << 5) | (b * q8 / 255u));
+}
+static void studio_colors(uint32_t q8);                  /* ui_studio.c: the tracks' and knobs' colours */
+
 static void palette_set(uint32_t i)
 {
-    uint32_t k;
+    const palette_t *p = &PALETTES[i % NPALETTES];
+    uint32_t k, q = BRIGHT_Q8[scr_bright % NBRIGHT];
     for (k = 0; k < 5u; k++)
-        pal[k] = PALETTES[i % NPALETTES].c[k];
+        pal[k] = rgb_scale(p->c[k], q);
+    pal_bg = rgb_scale(p->bg, q);
+    pal_fg = rgb_scale(p->fg, q);
+    studio_colors(q);
 }
 
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }

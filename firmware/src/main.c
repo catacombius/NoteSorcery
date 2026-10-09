@@ -96,7 +96,7 @@ static void fm1_fault(const fm1_crash_t *c)
     fm1_reboot();
 }
 
-/* power-on: three parts with their default sounds (TRK_DEF), the drum track, empty patterns */
+/* power-on: six parts with their default sounds (TRK_DEF), the two drum tracks, empty patterns */
 static void felucca_init(void)
 {
     uint32_t i;
@@ -113,7 +113,8 @@ static void felucca_init(void)
         }
         track_defaults_steps(t);              /* the sequencers start empty */
     }
-    TDRUM->p[P_E0] = DRUM_DEFAULT_KIT;        /* the 808 kit */
+    for (i = 0; i < NDRUMTRK; i++)
+        trk[TRK_DRUM + i].p[P_E0] = (int16_t)DRUM_DEFAULT_KIT_OF(i);   /* (drums.c) */
     song.sel = 0;
     song.master_q12 = 2048;
     autosave_resume();                        /* the project as it was left (project.c) */
@@ -157,6 +158,9 @@ static void fm1_main(void)
     audio_init();
 #if FELUCCA_CDC
     usb_cdc_on = usb_serial;                            /* menu USB SERIAL (persist_boot read it): before USB starts */
+#endif
+#if FELUCCA_UAC
+    usb_smp_on = usb_sample;                            /* NoteSorcery: menu USB SAMPLE, the same way */
 #endif
     usb_start();
 #if FELUCCA_UART
@@ -227,6 +231,7 @@ static void fm1_main(void)
         }
 #if FELUCCA_OTA
         ed_service();                                   /* web editor SysEx */
+        usmp_service();                                 /* USB SAMPLE: the take into flash */
         ota_service();                                  /* M-UPGRADE handshake */
         if (usb.ota_req) {                              /* M-UPGRADE upgrade command */
             usb.ota_req = 0;

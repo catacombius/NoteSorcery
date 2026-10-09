@@ -10,7 +10,7 @@ Every sound comes from a free library and is CC0 (public domain), except E.PIANO
 Each sound is a set of zones (one WAV each, mono 16-bit 22050 Hz, the rate of the
 slots) written to assets/hiphop-pack/<SOUND>/, plus assets/hiphop-pack/pack.json
 (roots, key ranges) that the web editor reads to load a sound into a slot in one click
-(tools/fm1_sample_upload.py loads them too). A slot holds about 7.4 s in all.
+(tools/fm1_sample_upload.py loads them too). A slot holds about 5.9 s in all.
 
 What makes them sound like a crate-dug record (the boom-bap sound of 1988-1996: a
 record sampled into an SP-1200 / MPC60) is done here, not in the firmware: every
@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "hiphop-pack"
 CACHE = ROOT / "build" / "hiphop-src"
 RATE = 22050
-SLOT_SAMPLES = (0x14000 - 512) * 2            # 4-bit ADPCM: two samples a byte (sampleio.SLOT_MAX_DATA)
+SLOT_SAMPLES = (0x10000 - 512) * 2            # 4-bit ADPCM: two samples a byte (sampleio.SLOT_MAX_DATA)
 SLOT_BUDGET = int(SLOT_SAMPLES * 0.97)        # (a margin: the editor resamples the WAVs)
 
 RAW = "https://raw.githubusercontent.com/"

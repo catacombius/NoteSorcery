@@ -50,7 +50,7 @@ static void track_lfo_tick(track_t *t)
 /* voices the engine may use (POLY and UNISON): its cap, else all of them */
 static uint32_t trk_nvoice(const track_t *t)
 {
-    uint32_t c = ENGINES[t->engine] == &ENG_PHYS ? phys_poly(t) : ENGINES[t->engine]->poly;   /* (PHYS: by MODEL) */
+    uint32_t c = ENGINES[t->engine]->poly;
     return c && c < NPOLY ? c : NPOLY;
 }
 
@@ -263,7 +263,7 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     const engine_t *e = ENGINES[t->engine];
     int sounding = v->active && v->stage != 0;
     uint32_t ph0 = v->ph[0], ph1 = v->ph[1], ph2 = v->ph[2];
-    int32_t s0 = v->s[0], s1 = v->s[1], s4 = v->s[4], s5 = v->s[5], s6 = v->s[6], s7 = v->s[7];
+    int32_t s0 = v->s[0], s1 = v->s[1], s4 = v->s[4];
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
     v->gate = 1;
@@ -285,27 +285,10 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
         if (e == &ENG_ANALOG) {
             v->s[0] = s0;
             v->s[1] = s1;
-        } else if (e == &ENG_DIGITAL) {
-            v->s[5] = s5;
-            v->s[6] = s6;
-            v->s[7] = s7;                               /* op 4 phase; the modulator envelope restarts */
-        } else if (e == &ENG_LOFI) {
-            v->s[0] = s0;
-            v->s[4] = s4;
         } else if (e == &ENG_TRIO) {
             v->s[0] = s0;                               /* filter */
             v->s[1] = s1;
             v->s[4] = s4;                               /* the sample waiting for its step corrections */
-        } else if (e == &ENG_PHASE) {
-            v->s[0] = s0;                               /* the WAVE / WAVE2 toggles go with the phases kept */
-            v->s[1] = s1;
-        } else if (e == &ENG_NOISE) {
-            v->s[0] = s0;                               /* the filter and the colour poles (2.5) */
-            v->s[1] = s1;
-            v->s[4] = s4;
-            v->s[5] = s5;
-            v->s[6] = s6;
-            v->s[7] = s7;
         }
     }
 }
@@ -380,12 +363,12 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
     uint32_t any = 0, i, mode = (uint32_t)t->p[P_VOICE];
     if (trk_silent(t))
         return;                                         /* MUTE, or another track soloed */
-    vis_hit |= (uint8_t)(1u << ((uint32_t)(t - trk) & 3u));
-    vis_note[(uint32_t)(t - trk) & 3u] = (uint8_t)note;
+    vis_hit |= (uint8_t)(1u << ((uint32_t)(t - trk) % NTRK));
+    vis_note[(uint32_t)(t - trk) % NTRK] = (uint8_t)note;
     if (is_drum(t)) {                                   /* the drum track: GM drums (drums.c) */
         if (note == 35u || note == 36u)
             vis_kick_hit = 1;
-        drum_on(note, vel);
+        drum_on(t, note, vel);
         return;
     }
     if ((uint32_t)(t - trk) < NPART && note < 128u)

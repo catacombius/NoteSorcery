@@ -152,6 +152,41 @@ int main(int argc, char **argv)
     open_family(FAM_EDIT); ui.force = 1; frame(); ppm("page-edit");
     open_family(FAM_FX); ui.force = 1; frame(); ppm("page-fx");
     open_family(FAM_SEQ); ui.force = 1; frame(); ppm("page-step");
+    {   /* NoteSorcery: PATTERN, the visual sequencer: every track's 16 steps of the page, the playheads */
+        static step_t keep_s[NTRK][NSTEP];
+        uint32_t k, j;
+        uint16_t hi0;
+        for (k = 0; k < NTRK; k++) memcpy(keep_s[k], trk[k].step, sizeof keep_s[k]);
+        for (k = 0; k < NPART; k++)
+            for (j = 0; j < 16u; j += 1u + k % 3u) {
+                uint8_t n[1] = {(uint8_t)(48 + k * 3 + j)};
+                put_step(&trk[k], j, 1, n, ST_NOTE, 0);
+            }
+        for (j = 0; j < 16u; j++) {
+            memset(&trk[TRK_DRUM].dstep[j], 0, sizeof trk[TRK_DRUM].dstep[j]);
+            if (j % 4u == 0u) dstep_set(&trk[TRK_DRUM].dstep[j], 0, LV_NORM, 0);
+            if (j % 2u == 1u) dstep_set(&trk[TRK_DRUM + 1].dstep[j], 4, LV_NORM, 0);
+        }
+        trk[3].p[P_MUTE] = 1;
+        open_family(FAM_SEQ); ui.force = 1; frame();
+        check(cur_page()->graph == GR_STEPS && str_eq(cur_page()->title, "PATTERN"), "SEQ again: PATTERN, the grid of all tracks");
+        ppm("page-pattern");
+        transport_req = 1; for (k = 0; k < 20u; k++) frame();
+        ui.force = 1; frame(); ppm("page-pattern-playing");
+        check(song.playing && trk[0].seq_idx > 0u, "PATTERN while playing: the playheads move (redrawn by signature)");
+        transport_req = 2; frame();
+        k = settings.palette;                          /* the PAPER theme: dark on light, the whole screen */
+        hi0 = C_HI;
+        for (j = 0; j < NPALETTES && !str_eq(PALETTES[j].name, "PAPER"); j++) ;
+        settings.palette = j; palette_set(j); ui.force = 1; frame(); ppm("page-pattern-paper");
+        check(j < NPALETTES && ((C_BLACK >> 11) & 31u) > 24u && ((C_WHITE >> 11) & 31u) < 4u &&
+              ((screen[239 * 240 + 120] >> 3) & 31u) > 24u, "theme PAPER: a light background, dark text, on screen");
+        settings.palette = k; palette_set(k); ui.force = 1; frame();
+        check(C_HI == hi0, "... and back");
+        trk[3].p[P_MUTE] = 0;
+        for (k = 0; k < NTRK; k++) memcpy(trk[k].step, keep_s[k], sizeof keep_s[k]);
+        open_family(FAM_SEQ); ui.force = 1; frame();
+    }
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-global");
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-master");
     open_family(FAM_SCL); ui.force = 1; frame(); ppm("page-scale");
@@ -294,23 +329,23 @@ int main(int argc, char **argv)
     release(B_SCL);
     press(B_GLO); frames(10);
     key(0); check(trk[0].p[P_MUTE] == 1, "GLO + key 1: track 1 muted");
-    key(9); check(song.solo == 2u, "GLO + key 6: track 2 soloed");
+    key(key_of_white(NTRK + 1u)); check(song.solo == 2u, "GLO + white key 10: track 2 soloed");
     ppm("layer-mix");
-    for (i = 0; i < 4u; i++) { fm1_in.notes = 1u << 26; frame(); fm1_in.notes = 0; frames(36); }   /* ~0.6 s apart */
-    check(song.g[G_BPM] >= 95 && song.g[G_BPM] <= 105, "GLO + the last key, tapped at ~0.6 s: ~100 BPM");
-    key(0); key(9);
+    for (i = 0; i < 4u; i++) { fm1_in.notes = 1u << MIX_K_TAP; frame(); fm1_in.notes = 0; frames(36); }   /* ~0.6 s apart */
+    check(song.g[G_BPM] >= 95 && song.g[G_BPM] <= 105, "GLO + black key 3, tapped at ~0.6 s: ~100 BPM");
+    key(0); key(key_of_white(NTRK + 1u));
     check(!trk[0].p[P_MUTE] && !song.solo, "again: unmuted, no solo");
-    /* (2.4) key 9 held: a fill; key 10: the next bar is one (again: cancelled) */
-    fm1_in.notes = 1u << key_of_white(8); frame(); frame();
-    check(fill_held == 1u && fill_now == 1u && (keys_lit() & (1u << key_of_white(8))) != 0, "GLO + key 9 held: FILL (the key lit)");
+    /* (2.4) black key 1 held: a fill; black key 2: the next bar is one (again: cancelled) */
+    fm1_in.notes = 1u << MIX_K_FILL; frame(); frame();
+    check(fill_held == 1u && fill_now == 1u && (keys_lit() & (1u << MIX_K_FILL)) != 0, "GLO + black key 1 held: FILL (the key lit)");
     ui.force = 1; frame(); ppm("layer-mix-fill");
     fm1_in.notes = 0; frame(); frame();
-    check(fill_held == 0u && fill_now == 0u, "key 9 let go: the fill ends");
-    key(key_of_white(9)); check(fill_arm == 1u && (keys_lit() & (1u << key_of_white(9))) != 0, "GLO + key 10: FILL NEXT BAR armed (the key lit)");
-    key(key_of_white(9)); check(fill_arm == 0u, "GLO + key 10 again: cancelled");
+    check(fill_held == 0u && fill_now == 0u, "black key 1 let go: the fill ends");
+    key(MIX_K_BAR); check(fill_arm == 1u && (keys_lit() & (1u << MIX_K_BAR)) != 0, "GLO + black key 2: FILL NEXT BAR armed (the key lit)");
+    key(MIX_K_BAR); check(fill_arm == 0u, "GLO + black key 2 again: cancelled");
     release(B_GLO);
-    fm1_in.notes = 1u << key_of_white(8); frame();     /* (no layer: a plain key, no fill) */
-    check(fill_held == 0u, "key 9 without GLO: no fill");
+    fm1_in.notes = 1u << MIX_K_FILL; frame();          /* (no layer: a plain key, no fill) */
+    check(fill_held == 0u, "black key 1 without GLO: no fill");
     fm1_in.notes = 0; frame();
     trk[0].p[P_CHORD] = 0;
 
@@ -544,6 +579,8 @@ int main(int argc, char **argv)
 
     {   /* menu NOTES (PR #11 by @renebohne): sounding synth voices light their keys */
         song.sel = 0; go_home(); ui.force = 1; frame();
+        set_engine_of(&trk[0], ENGI_ANALOG);        /* (NoteSorcery: track 1 starts on ACID, whose 303 ends a voice it never gated) */
+        frame();                                    /* (the switch and its note release, before the voice below) */
         trk[0].p[P_CHORD] = 0; trk[0].p[P_QUANT] = 0; trk[0].p[P_ROOT] = 0; trk[0].p[P_TRANS] = 0;
         song.octave = 0;
         lights_notes = 0;
@@ -581,6 +618,7 @@ int main(int argc, char **argv)
             char what[96];
             for (k = 0; k < sizeof L / sizeof L[0]; k++) {
                 ui.layer = (uint8_t)L[k].ly;
+                trk[4].p[P_MUTE] = L[k].ly == LY_MIX;   /* (GLO: C4 is track 5's mute tile; muted, the tile is dark) */
                 if (L[k].lit)
                     ok = (keys_lit() >> 7 & 1u) != 0;
                 else
@@ -588,6 +626,7 @@ int main(int argc, char **argv)
                 snprintf(what, sizeof what, "NOTES on, %s layer: the sounding C4 %s", L[k].name, L[k].lit ? "lit" : "glows under the tiles");
                 check(ok, what);
             }
+            trk[4].p[P_MUTE] = 0;
             ui.layer = LY_SCALE;
             check((keys_notes_dim() & scale_keys(0)) == scale_keys(0), "NOTES on, SEL: the scale glows");
             lights_notes = 0;
@@ -676,6 +715,26 @@ int main(int argc, char **argv)
         uint32_t sec;
         ui.menu = 1; ui.menu_sel = 0; ui.force = 1; frame(); ppm("menu-screen");
         check(mi_sec(ui.menu_sel) == MS_SCREEN, "menu: opens on SCREEN (COLOR, ZOOM)");
+        {   /* NoteSorcery: SCREEN's rows 3 and 4: BRIGHT (KNOB 3), NIGHT (KNOB 4) */
+            uint32_t l0 = lights_lvl, k0 = lights_keys, n0 = lights_notes, w;
+            uint16_t hi0 = C_HI, t0 = TRK_COL[0];
+            encs[panel.enc[EN_K3]] = -1; frame();
+            check(scr_bright == 1u && ui.menu_sel == MI_BRIGHT && C_HI < hi0 && TRK_COL[0] != t0,
+                  "menu SCREEN: KNOB 3 left: BRIGHT 70 %, every colour dimmer (the tracks' too)");
+            encs[panel.enc[EN_K3]] = 1; frame();
+            check(scr_bright == 0u && C_HI == hi0 && TRK_COL[0] == t0, "... right: back to 100 %");
+            encs[panel.enc[EN_K4]] = 1; frame(); ui.force = 1; frame(); ppm("menu-night");
+            check(night_on && ui.menu_sel == MI_NIGHT && lights_lvl == LIGHTS_LOW && lights_keys == KEYS_ALL && lights_notes &&
+                  scr_bright == NBRIGHT - 1u, "menu SCREEN: KNOB 4 right: NIGHT, every button and key lit low, the screen dimmest");
+            w = lights_word();
+            lights_from_word(0);
+            lights_from_word(w);
+            check(night_on && scr_bright == NBRIGHT - 1u, "NIGHT is kept with the settings (the lights word)");
+            encs[panel.enc[EN_K4]] = -1; frame();
+            check(!night_on && lights_lvl == l0 && lights_keys == k0 && lights_notes == n0 && scr_bright == 0u && C_HI == hi0,
+                  "NIGHT off: the lights and brightness from before");
+            ui.menu_sel = 0; ui.force = 1; frame();
+        }
         encs[panel.enc[EN_SELECT]] = 1; frame();
         check(mi_sec(ui.menu_sel) == MS_LIGHTS && ui.menu_sel == MI_LIGHTS, "menu: SELECT right: LIGHTS, the cursor on its first row");
         encs[panel.enc[EN_K2]] = 1; frame(); encs[panel.enc[EN_K2]] = 1; frame();
@@ -842,7 +901,7 @@ int main(int argc, char **argv)
         for (j = 0; j < NPAGES; j++) if (!strcmp(PAGES[j].title, "STEP")) break;
         open_family(FAM_SEQ); ui.page = (uint8_t)j; ui.fam_last[FAM_SEQ] = (uint8_t)j; page_entered(); ui.force = 1; frames(2);
         b0 = ui.page;
-        for (j = 0; j < 3u; j++) { encs[panel.enc[EN_ALGO]] = 1; frames(2); }
+        for (j = 0; j < TRK_DRUM; j++) { encs[panel.enc[EN_ALGO]] = 1; frames(2); }
         check(song.sel == TRK_DRUM && ui.page == b0 && !page_for_drum(cur_page()) && !strcmp(PAGES[ui.page].title, "STEP"),
               "STEP on the drum track: not a page for the drums (DRUM TRACK shown, no piano roll of the drum steps)");
         for (j = 0; j < NSTEP; j++) memset(&TDRUM->dstep[j], 0, sizeof(dstep_t));

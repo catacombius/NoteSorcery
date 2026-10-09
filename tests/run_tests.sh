@@ -56,6 +56,12 @@ run "sequencer 2.0: no drift, ratchets, roll, erase / undo, ghost / hard, chords
 
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drumkit_test" tests/drumkit_test.c -lm
 run "synthesised drum kits: every kit x sound bounded, audible, finite, levels, cost" "$OUT/drumkit_test" "$OUT/drum-kits.wav" "$OUT/drum-kits.txt"
+$CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/drumcm_test" tests/drumcm_test.c -lm
+run "808 CM / 909 CM: X0X's circuit kits in one shared slot, the synthesised fallback, levels, cost" "$OUT/drumcm_test"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/clock_test" tests/clock_test.c -lm
+run "MIDI clock out (24 ppqn, START / STOP, TRS passed on) and SONG POSITION in (USB, TRS)" "$OUT/clock_test"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/nsx_test" tests/nsx_test.c -lm
+run "NSX (editor protocol v11): CAPS, TRANSPORT, TEMPO" "$OUT/nsx_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/userkit_test" tests/userkit_test.c -lm
 run "user drum kits (KIT USR1..USR3): a user slot's sounds on the drum lanes" "$OUT/userkit_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/dsyn_test" tests/dsyn_test.c -lm
@@ -103,6 +109,10 @@ $CC -DT_CDC=2 -DHALF_FRAMES=$HALF -o "$OUT/uac_test_seroff" tests/uac_test.c -lm
 run "USB audio input: descriptors (CDC built in, menu USB SERIAL OFF), ring and packets" "$OUT/uac_test_seroff"
 run "USB SERIAL OFF: the descriptors of a build without CDC, byte for byte" \
     sh -c "[ \"\$(UAC_DUMP=1 '$OUT/uac_test_seroff' | tail -n 2)\" = \"\$(UAC_DUMP=1 '$OUT/uac_test_nocdc' | tail -n 2)\" ] && echo same"
+$CC -DT_CDC=0 -DHALF_FRAMES=$HALF -o "$OUT/usb_sample_test" tests/usb_sample_test.c -lm
+run "USB SAMPLE: descriptors (USB audio from the host), the recorder (ADPCM, 22.05 kHz)" "$OUT/usb_sample_test"
+$CC -DT_CDC=2 -DHALF_FRAMES=$HALF -o "$OUT/usb_sample_test_seroff" tests/usb_sample_test.c -lm
+run "USB SAMPLE: the same with CDC built in, menu USB SERIAL OFF" "$OUT/usb_sample_test_seroff"
 uac_in_app() { ${CC%% *} -E -Ibuild/gen -Ifirmware/hal -Ifirmware/src firmware/src/felucca.c 2>/dev/null | grep -q uac_service; }
 run "USB audio input: built into the firmware (FELUCCA_UAC set before usb.c)" uac_in_app
 
@@ -121,13 +131,17 @@ run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"
 mkdir -p build/tracks_demo
 run "TRACKS: 4-track pattern, live recording (lengths, swing), voice budget, engine switch, cost" env TRACKS=build/tracks_demo "$OUT/hostsim" 0 0 1 "$OUT/tracks.wav"
 $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/project_test" tests/project_test.c -lm
-run "project formats (FUN4 / FUN3 / FUN2 / FUN1 -> FUN5), capture / apply, autosave" "$OUT/project_test"
+run "project format (NSP1: 8 tracks), capture / apply, sections" "$OUT/project_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/slicer_test" tests/slicer_test.c -lm
 mkdir -p build/slicer_demo
 run "SLICER: no clicks, timing, sync with the sequencer, STUT, cost, demos" "$OUT/slicer_test" build/slicer_demo
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6_test" tests/fm6_test.c -lm
 mkdir -p build/fm6_demo
 run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos" "$OUT/fm6_test" build/fm6_demo
+$CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/acid_test" tests/acid_test.c -lm
+run "ACID (NoteSorcery, X0X's Open303): presets, accent, slide, release, two tracks, the arena, cost" "$OUT/acid_test"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/wave_test" tests/wave_test.c -lm
+run "WAVE (NoteSorcery): band-limited levels, the level per pitch, MORPH, user waves, presets" "$OUT/wave_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
 # the CPU budget: counted by the kernel on macOS; elsewhere under callgrind when valgrind is there (exact, ~45 s;
 # SKIP_CPU_VALGRIND=1 to time instead, which is only a rough check)
@@ -142,6 +156,11 @@ run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/inst
 
 if command -v node >/dev/null 2>&1; then
     run "web pages: editor protocol, samples, packages, update protocol" node web/test_web.mjs
+    run "web pages: SoundFont presets into a sample slot (sf2.js, buildSlot)" node web/test_sf2.mjs
+    $CC -O2 -w -ffp-contract=off -Ibuild/gen -Ifirmware/src -o "$OUT/nsp1_export" tests/nsp1_export.c -lm &&
+        mkdir -p "$OUT/als" && "$OUT/nsp1_export" "$OUT/als" >/dev/null
+    run "Ableton export (web/als): the notes as the FM-1 plays them, sections as scenes, the .als and .mid" \
+        node web/als/test_als.mjs "$OUT/als"
 else
     echo "== skip web tests (no node)"
 fi

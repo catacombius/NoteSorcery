@@ -207,6 +207,7 @@ static void vis_update(void)
 {
     uint32_t i, w, hit, now = fm1_ms;
     int32_t pk[4], mpk = 0;
+    uint8_t gn[4] = {60, 60, 60, 60};
     /* the scope: the last 512 frames (left, right) */
     w = scope_w;
     for (i = 0; i < VIS_FFT; i++) {
@@ -216,14 +217,28 @@ static void vis_update(void)
         if (-vis_l[i] > mpk) mpk = -vis_l[i];
     }
     /* the tracks' peaks since the last look (as the TRACKS meters take them) and the notes that started */
-    fm1_irq_off();
-    for (i = 0; i < NPART; i++) {
-        pk[i] = trk[i].peak;
-        trk[i].peak = 0;
+    fm1_irq_off();                                  /* NoteSorcery: eight tracks in the four pictures' voices:
+                                                     * tracks 1 + 4, 2 + 5, 3 + 6, and the two drum tracks */
+    for (i = 0; i < 4u; i++)
+        pk[i] = 0;
+    {
+        uint32_t h = vis_hit, g;
+        hit = 0;
+        for (i = 0; i < NTRK; i++) {
+            int32_t p = is_drum(&trk[i]) ? drumst[i - TRK_DRUM].peak : trk[i].peak;
+            g = is_drum(&trk[i]) ? 3u : i % 3u;
+            if (is_drum(&trk[i]))
+                drumst[i - TRK_DRUM].peak = 0;
+            else
+                trk[i].peak = 0;
+            if (p > pk[g])
+                pk[g] = p;
+            if ((h >> i) & 1u) {
+                hit |= 1u << g;
+                gn[g] = vis_note[i];                /* (the group's note: its last track's) */
+            }
+        }
     }
-    pk[3] = drums.peak;
-    drums.peak = 0;
-    hit = vis_hit;
     vis_hit = 0;
     if (vis_kick_hit) {
         vis_kick_hit = 0;
@@ -231,11 +246,11 @@ static void vis_update(void)
     }
     fm1_irq_on();
     for (i = 0; i < 4u; i++) {
-        int32_t v = trk_level(i) && !trk[i].p[P_MUTE] ? vis_lvl(pk[i]) : 0;   /* (as the TRACKS meters) */
+        int32_t v = vis_lvl(pk[i]);                 /* (the peaks of the tracks heard: mute and LEVEL 0 make none) */
         vs.lvl[i] = (int16_t)v;
         if ((hit >> i) & 1u) {
             vs.flash[i] = 8;
-            vs.wn[i] = (uint8_t)(2u + vis_note[i] % 12u / 2u);
+            vs.wn[i] = (uint8_t)(2u + gn[i] % 12u / 2u);
             if (vs.wamp[i] < 1000) vs.wamp[i] = 1000;
             if (vs.bh[i] < 8 * 256)                 /* BOUNCE: a kick, unless already high up */
                 vs.bv[i] = (int16_t)(3 * 256 + 51 * (int32_t)i);

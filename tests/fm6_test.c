@@ -43,7 +43,7 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 #include "../firmware/src/storage.c"
 static uint8_t flash_ok = 1;
-static union { uint8_t b[3840]; } proj_tmp;             /* (project.c's staging buffer: the bank is built there) */
+static union { uint8_t b[7680]; } proj_stage;           /* (project.c's staging buffer: the bank is built there) */
 #define FM6_BANK_XIP(copy) (nor + st_sector(OBJ_FM6BANK, copy) + ST_PAYLOAD_OFF)
 #include "../firmware/src/fm6_bank.c"
 #ifdef __APPLE__

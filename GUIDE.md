@@ -63,13 +63,22 @@ The 11 black keys are F#3, G#3, A#3, C#4, D#4, F#4, G#4, A#4, C#5, D#5, F#5. The
 
 ## 1. Install and update
 
-**From the browser (recommended).** Open the [installer page](https://isod89.github.io/sloop-fm1/) in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. The FM-1 restarts on the SLOOP logo.
+**From the browser (recommended).** Open **<https://catacombius.github.io/NoteSorcery/>** in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. Then unplug the FM-1 and plug it back in once, so the computer finds its USB audio again. The editor is linked from the same page. SLOOP's installer page installs SLOOP, not NoteSorcery.
 
-**From the source folder (Windows).** Double-click **`INSTALL-SLOOP.bat`**: it builds the firmware and opens the installer at `http://localhost:8766/webapp/installer/`. Keep the black window open until the install is done. **`OPEN-EDITOR.bat`** opens the web editor.
+**Your own build, from the browser.** Build the package (`./build.sh`, see [BUILDING.md](BUILDING.md)), make a local copy of the installer and editor, and serve it from `localhost` (Web MIDI needs a secure context):
 
-**Updating** keeps your projects, presets, samples, kits and settings. The installer checks the package (SHA-256), SLOOP's update loader checks it again (CRC) before it starts the new firmware, and a damaged package is refused before anything is written.
+```
+python3 web/make_site.py build/felucca.fwsc dev notesorcery-site
+cd notesorcery-site && python3 -m http.server 8000
+```
 
-**Before you go back to an older SLOOP** (2.3 or earlier), save a backup in the editor: 2.3 cannot read 2.4 projects (format FUN5).
+Then open `http://localhost:8000/webapp/installer/` and install as above.
+
+**From the command line:** `pip3 install mido python-rtmidi`, then `python3 tools/fm1_install.py build/felucca.fwsc`.
+
+**Coming from SLOOP:** save a backup in SLOOP's editor first. NoteSorcery does not read SLOOP's projects, and its sample slots are smaller (see the README, *Differences from SLOOP*).
+
+**Updating** NoteSorcery keeps your projects, presets, samples, kits and settings. The installer checks the package (SHA-256), the update loader checks it again (CRC) before it starts the new firmware, and a damaged package is refused before anything is written.
 
 ---
 
@@ -798,12 +807,12 @@ The visualiser sees the mix **as if MASTER were all the way up**: with MASTER tu
 
 **Hold HOME** (0.7 s) to open the menu; hold it again to close it. The menu is in four sections:
 
-| Section | KNOB 1 | KNOB 2 | KNOB 3 |
-| --- | --- | --- | --- |
-| **SCREEN** | **COLOR**: the screen palette (GREEN, AMBER, CYAN, RED, MONO…) | **ZOOM**: ON shows the value you touch large and white | — |
-| **LIGHTS** | **LIGHTS**: OFF, LOW, MID, HIGH | **KEYS**: OFF, C KEYS, WHITE KEYS, ALL KEYS | **NOTES**: OFF / ON |
-| **AUDIO** | **SPEAKER LOWCUT**: ON cuts the lows the small speaker cannot play (~110 Hz) | **USB AUDIO**: MASTER / FULL | **USB SERIAL**: OFF / ON (developers; takes effect at the next start) |
-| **SYSTEM** | **HARDWARE CALIBRATION** (the knob selects it, OCT+ opens it) | **ABOUT**, the version (the knob selects it, OCT+ opens it) | — |
+| Section | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| **SCREEN** | **COLOR**: the screen palette (GREEN, AMBER, CYAN, RED, MONO, OP-1, PAPER, CONTRAST…) | **ZOOM**: ON shows the value you touch large and white | **BRIGHT**: 100 / 70 / 45 / 25 % | **NIGHT**: OFF / ON (every button and key lit low, the notes on their keys, the screen dimmed) |
+| **LIGHTS** | **LIGHTS**: OFF, LOW, MID, HIGH | **KEYS**: OFF, C KEYS, WHITE KEYS, ALL KEYS | **NOTES**: OFF / ON | — |
+| **AUDIO** | **SPEAKER LOWCUT**: ON cuts the lows the small speaker cannot play (~110 Hz) | **USB AUDIO**: MASTER / FULL | **USB SERIAL**: OFF / ON (developers; takes effect at the next start) | **USB SAMPLE**: OFF / ON (the FM-1 as a USB audio output too; takes effect at the next start; OCT+ opens the recorder, see [Live sampling over USB](#live-sampling-over-usb)) |
+| **SYSTEM** | **HARDWARE CALIBRATION** (the knob selects it, OCT+ opens it) | **ABOUT**, the version (the knob selects it, OCT+ opens it) | — | — |
 
 | Control in the menu | Does |
 | --- | --- |
@@ -890,6 +899,20 @@ On USB the FM-1 is also an audio input named **Felucca**: 44.1 or 48 kHz (the co
 - **FULL**: a fixed level, as with MASTER all the way up (kept from clipping by the limiter); MASTER then only sets the headphones. Best for a computer input with no level control of its own.
 
 The first time, the computer sees the FM-1 as a slightly different device (MIDI + audio) and sets it up again. On macOS 13–15, keep **USB SERIAL** OFF (the default) or the audio input may not show.
+
+### Live sampling over USB
+
+With **HOME menu → AUDIO → USB SAMPLE** ON (and USB SERIAL OFF), the FM-1 is also a USB audio **output**: after the next start, a phone, tablet or computer can play into it (44.1 kHz, 16-bit stereo, class compliant). Whatever it plays is recorded into one of your sample slots, USR1–USR4, the way an OP-1 samples:
+
+1. Turn USB SAMPLE ON and restart the FM-1. Choose **Felucca** as the audio output on the phone or computer (on Android, a USB audio app or the system output; on a computer, the sound settings or your DAW's output).
+2. In the menu, on USB SAMPLE, press **OCT+**: the recorder opens. It shows HOST PLAYING when audio arrives, an input meter and the slot.
+3. **KNOB 1** picks the slot (USR1–USR4). **OCT+** erases it (about 0.7 s, the sound pauses) and arms the recorder.
+4. Play the sound on the host. The take starts at the first sound above −40 dBFS, so the silence before it is left out.
+5. **OCT+** ends the take. It also ends by itself when the slot is full (about 5.9 s) or when the host stops playing for 2 s. **OCT−** ends it too and goes back to the menu.
+
+The take is saved as one zone over the whole keyboard (root C4, 22.05 kHz mono, the sum of both channels), named USB TAKE. Play it with the **SAMPLE** engine on slot USR1–USR4, or as a drum kit (a lane per key); the browser editor's SAMPLES page can chop it. The FM-1's own USB audio to the host keeps working at the same time.
+
+To send a recording you already have instead, use the editor's SAMPLES page (WAV, MP3, FLAC, SoundFont `.sf2`…) or the FieldTape app.
 
 ---
 

@@ -88,6 +88,13 @@ valgrind is installed (exact, about 45 s more); without either it is timed, a ro
 After an intended change of the sound, `GOLDEN_UPDATE=1 sh tests/run_tests.sh` rewrites
 the hashes; `BUDGET_UPDATE=1` does the same for the cost files.
 
+## Continuous integration and the install page
+
+`.github/workflows/site.yml` does the same on GitHub: it fetches the toolchain and the three SDK files, builds,
+runs `tests/run_tests.sh`, makes a release build (`NS_VERSION` in the workflow) and keeps its `.fwsc` as a run
+artifact. On `main` it also publishes the installer and editor (`web/make_site.py`) on GitHub Pages, at
+<https://catacombius.github.io/NoteSorcery/> (Settings → Pages → Source: GitHub Actions).
+
 ## Install
 
 On Windows, `INSTALL-SLOOP.bat` builds and opens the web installer (Chrome or Edge). The

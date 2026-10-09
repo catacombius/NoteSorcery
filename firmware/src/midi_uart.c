@@ -49,7 +49,8 @@ static void um_byte(uint32_t b)
     }
     if (b & 0x80u) {
         um.sysex = b == 0xF0u;
-        um.st = b < 0xF0u ? (uint8_t)b : 0;        /* system common/SysEx cancel running status */
+        um.st = b < 0xF0u || b == 0xF2u ? (uint8_t)b : 0;   /* system common/SysEx cancel running status (NoteSorcery:
+                                                    * SONG POSITION kept for its two bytes) */
         um.need = (uint8_t)um_len(b);
         um.got = 0;
         return;
@@ -65,6 +66,10 @@ static void um_byte(uint32_t b)
         uint32_t d1 = um.need == 2u ? um.d0 : b, d2 = um.need == 2u ? b : 0u;
         uint32_t pkt = (um.st >> 4) | (uint32_t)um.st << 8 | d1 << 16 | d2 << 24;
         um.got = 0;
+        if (um.st == 0xF2u) {                      /* SONG POSITION: as the clock, cable 1 (seq.c mclk_event) */
+            pkt = 0x1Fu | 0xF2u << 8 | d1 << 16 | d2 << 24;
+            um.st = 0;                             /* (no running status for system common) */
+        }
         if (mi_w - mi_r < MQ) {
             midi_in_q[mi_w % MQ] = pkt;
             RING_PUBLISH();

@@ -268,7 +268,7 @@ static int32_t gain_next(track_t *t)                    /* the track's mute gain
 }
 
 /* ---- DUCK: every kick (the drum track's KICK / KICK 2) dips the synth parts, which come back over an
- * eighth note: depth G_DUCK, the curve (1 - t / T)^2. drum_on sets drums.kick. */
+ * eighth note: depth G_DUCK, the curve (1 - t / T)^2. drum_on sets drum_kick. */
 static struct {
     uint32_t t;                                         /* units since the kick */
     int32_t g0, g1;                                     /* the parts' gain at the block start, end (Q15) */
@@ -279,8 +279,8 @@ static void duck_block(uint32_t adv)
     int32_t depth = song.g[G_DUCK] * 258, x;
     uint32_t len = BEAT_U / 2u;
     duck.g0 = duck.g1;
-    if (drums.kick) {
-        drums.kick = 0;
+    if (drum_kick) {
+        drum_kick = 0;
         duck.t = 0;
     }
     if (!depth || duck.t >= len) {
@@ -475,7 +475,7 @@ static void djf_process(int32_t *l, int32_t *r, uint32_t n)
 
 #include "punch.c"            /* PUNCH-IN FX on the whole mix (FX held + a white key) */
 static int32_t master_cur = -1;                        /* the volume knob, ramped per sample (no zipper) */
-static void mix_block(int32_t *out, uint32_t n)
+static void __attribute__((noinline)) mix_block(int32_t *out, uint32_t n)   /* (out of the ISR: target_budget.py) */
 {
     uint32_t i;
     int32_t m0, m1;
@@ -485,28 +485,31 @@ static void mix_block(int32_t *out, uint32_t n)
     duck_block(n * (uint32_t)song.g[G_BPM]);
     for (i = 0; i < NPART; i++)
         mix_part(&trk[i], n);
-    drums.a0 = TDRUM->att;                              /* the drum track's mute / solo fade */
-    drums.a1 = 32767 - gain_next(TDRUM);
-    {
+    for (i = TRK_DRUM; i < NTRK; i++) {                 /* the drum tracks */
         static int32_t dl[CTL], dr[CTL], dv[CTL], dd[CTL];
+        track_t *t = &trk[i];
+        drums_t *D = drums_of(t);
+        uint32_t j;
         tsvf_t fc;
-        djf_t *f = &tflt[TRK_DRUM];
-        if (n <= CTL && djf_block(f, TDRUM->p[P_TFLT], &fc)) {   /* the drum track's FILTER: left, right, the sends */
-            for (i = 0; i < n; i++)
-                dl[i] = dr[i] = dv[i] = dd[i] = 0;
-            slicer_drums(dl, dr, dv, dd, n);
+        djf_t *f = &tflt[i];
+        D->a0 = t->att;                                 /* the drum track's mute / solo fade */
+        D->a1 = 32767 - gain_next(t);
+        if (n <= CTL && djf_block(f, t->p[P_TFLT], &fc)) {   /* the drum track's FILTER: left, right, the sends */
+            for (j = 0; j < n; j++)
+                dl[j] = dr[j] = dv[j] = dd[j] = 0;
+            slicer_drums(t, dl, dr, dv, dd, n);
             tflt_run(f, &fc, dl, n, 0);
             tflt_run(f, &fc, dr, n, 1);
             tflt_run(f, &fc, dv, n, 2);
             tflt_run(f, &fc, dd, n, 3);
-            for (i = 0; i < n; i++) {
-                mix_l[i] += dl[i];
-                mix_r[i] += dr[i];
-                send_r[i] += dv[i];
-                send_d[i] += dd[i];
+            for (j = 0; j < n; j++) {
+                mix_l[j] += dl[j];
+                mix_r[j] += dr[j];
+                send_r[j] += dv[j];
+                send_d[j] += dd[j];
             }
         } else {
-            slicer_drums(mix_l, mix_r, send_r, send_d, n);   /* drums_render, through the SLICER when on */
+            slicer_drums(t, mix_l, mix_r, send_r, send_d, n);   /* drums_render, through the SLICER when on */
         }
     }
     click_render(mix_l, mix_r, n);                      /* the metronome: its own voice (drums.c), any kit, any mute */

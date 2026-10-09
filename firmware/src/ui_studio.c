@@ -16,10 +16,34 @@ static int on_drum_page(void) { return !ui.home && cur_page()->scope == SC_DRUM;
 #define TE_G3 RGB(118, 118, 126)         /* labels */
 #define TE_G4 RGB(196, 196, 204)         /* secondary text */
 #define TE_RED RGB(255, 44, 52)          /* recording, erasing */
-static const uint16_t TE_COL[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
-static const uint16_t TE_MID[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
-static const uint16_t TE_DIM[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
-#define TE_DRUM TE_COL[3]
+/* (the colours as designed; TE_* / TRK_* are them at the screen's BRIGHT: studio_colors) */
+static const uint16_t TE_COL0[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
+static const uint16_t TE_MID0[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
+static const uint16_t TE_DIM0[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
+/* NoteSorcery: the eight tracks' colours (the knobs keep TE_COL): blue, green, yellow, violet, cyan, pink for the
+ * synth tracks, orange and lime for the drum tracks; MID about 2/3, DIM about 1/3 of each */
+static const uint16_t TRK_COL0[NTRK] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(168, 96, 255),
+                                        RGB(24, 200, 220), RGB(255, 90, 170), RGB(255, 98, 26), RGB(170, 220, 30)};
+static const uint16_t TRK_MID0[NTRK] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(112, 64, 170),
+                                        RGB(16, 134, 146), RGB(170, 60, 114), RGB(170, 66, 18), RGB(114, 146, 20)};
+static const uint16_t TRK_DIM0[NTRK] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(56, 32, 86),
+                                        RGB(8, 66, 74), RGB(86, 30, 56), RGB(86, 32, 8), RGB(56, 74, 10)};
+static uint16_t TE_COL[4], TE_MID[4], TE_DIM[4], TRK_COL[NTRK], TRK_MID[NTRK], TRK_DIM[NTRK];
+static void studio_colors(uint32_t q8)                   /* (gfx.c palette_set) */
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        TE_COL[k] = rgb_scale(TE_COL0[k], q8);
+        TE_MID[k] = rgb_scale(TE_MID0[k], q8);
+        TE_DIM[k] = rgb_scale(TE_DIM0[k], q8);
+    }
+    for (k = 0; k < NTRK; k++) {
+        TRK_COL[k] = rgb_scale(TRK_COL0[k], q8);
+        TRK_MID[k] = rgb_scale(TRK_MID0[k], q8);
+        TRK_DIM[k] = rgb_scale(TRK_DIM0[k], q8);
+    }
+}
+#define TE_DRUM (TRK_COL[(uint32_t)(TDRUM - trk) % NTRK])
 
 static void te_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c)     /* filled circle */
 {
@@ -202,45 +226,32 @@ static void studio_tracks_draw(void)
     static uint32_t head, rows[NTRK], footer;
     uint32_t i, j;
     te_header("tracks", TE_G3, &head);
-    for (i = 0; i < NTRK; i++) {
+    for (i = 0; i < NTRK; i++) {                       /* NoteSorcery: eight rows of 18 px */
         track_t *t = &trk[i];
-        char b[24], e[16];
+        char b[24];
         uint32_t selected = song.sel == i, len = (uint32_t)clamp(t->p[P_SLEN], 1, 64);
-        uint32_t level = i == TRK_DRUM ? song.g[G_DRLVL] : t->p[P_LEVEL];
+        uint32_t level = (uint32_t)t->p[P_LEVEL];
         uint32_t silent = trk_silent(t) || !level, pos = t->seq_idx % len, rec = (song.rec >> i) & 1u;
         uint32_t solo = (song.solo >> i) & 1u, bank = song.playing ? pos / 16u : 0u, h;
-        uint16_t col = TE_COL[i], dim = TE_DIM[i];
-        if (i == TRK_DRUM) {
-            str_cpy(b, DRUM_KIT_NAMES[drum_kit()], sizeof b);
-            te_lower(e, "drums", sizeof e);
-        } else {
+        uint16_t col = TRK_COL[i], dim = TRK_DIM[i];
+        if (is_drum(t))
+            str_cpy(b, DRUM_KIT_NAMES[drum_kit_of(t)], sizeof b);
+        else
             trk_short_name(i, b);
-            te_lower(e, ENGINES[t->eng_req % NENGINES]->name, sizeof e);
-        }
-        b[13] = 0;
+        te_lower(b, b, sizeof b);
+        b[8] = 0;
         h = studio_hash(selected + level * 7u + silent * 997u + rec * 1999u + solo * 4999u + len * 37u +
                         song.playing * 7u + pos * 71u + bank * 13u, b);
         for (j = 0; j < len; j++) h = h * 31u + (uint32_t)trk_step_on(t, j);
         if (!ui.force && h == rows[i]) continue;
         rows[i] = h;
-        cv_begin(240, 36, C_BLACK);
-        cv_rect(2, 3, 26, 30, selected ? col : dim);   /* the track tile */
+        cv_begin(240, 18, C_BLACK);
+        cv_rect(2, 1, 16, 16, selected ? col : dim);   /* the track tile */
         {
             char n[2] = {(char)('1' + i), 0};
-            cv_text(11, 10, &FONT_S, n, selected ? C_BLACK : col);
+            cv_text(6, 1, &FONT_S, n, selected ? C_BLACK : col);
         }
-        cv_text(34, 1, &FONT_S, b, selected ? C_WHITE : TE_G4);
-        if (34 + text_w(&FONT_S, b) + 6 + text_w(&FONT_S, e) < 196)
-            cv_text(34 + text_w(&FONT_S, b) + 6, 1, &FONT_S, e, selected ? col : TE_G3);
-        if (rec) {
-            cv_rect(200, 2, 36, 15, TE_RED);
-            cv_text(206, 1, &FONT_S, "rec", C_WHITE);
-        } else if (solo) {
-            cv_rect(200, 2, 36, 15, C_WHITE);
-            cv_text(202, 1, &FONT_S, "solo", C_BLACK);
-        } else if (silent) {
-            cv_text(204, 1, &FONT_S, "mute", TE_G3);
-        }
+        cv_text(22, 1, &FONT_S, b, selected ? C_WHITE : TE_G4);
         for (j = 0; j < 16u; j++) {                    /* the 16 steps in view */
             uint32_t p = bank * 16u + j, on = 0;
             if (len <= 16u) {
@@ -254,17 +265,26 @@ static void studio_tracks_draw(void)
                     for (k = a; k < z; k++) if (trk_step_on(t, k)) on = 2;
                 }
             }
-            cv_rect(34 + (int32_t)j * 10, 21, 8, 9,
+            cv_rect(90 + (int32_t)j * 7, 4, 6, 8,
                     !on ? C_BLACK : on == 2u ? (silent ? TE_G3 : selected ? col : dim) : TE_G1);
             if (on == 2u && !selected && !silent)
-                cv_rect(34 + (int32_t)j * 10, 21, 8, 2, col);
+                cv_rect(90 + (int32_t)j * 7, 4, 6, 2, col);
             if (song.playing && p == pos)
-                cv_rect(34 + (int32_t)j * 10, 31, 8, 2, C_WHITE);
+                cv_rect(90 + (int32_t)j * 7, 14, 6, 2, C_WHITE);
         }
-        cv_rect(198, 23, 38, 5, TE_G1);                /* the level */
-        if (!silent)
-            cv_rect(198, 23, (int32_t)level * 38 / 127, 5, selected ? col : TE_G3);
-        cv_blit(0, 40 + i * 36);
+        if (rec) {
+            cv_rect(206, 2, 32, 14, TE_RED);
+            cv_text(210, 1, &FONT_S, "rec", C_WHITE);
+        } else if (solo) {
+            cv_rect(206, 2, 32, 14, C_WHITE);
+            cv_text(210, 1, &FONT_S, "slo", C_BLACK);
+        } else if (silent) {
+            cv_text(206, 1, &FONT_S, "mute", TE_G3);
+        } else {
+            cv_rect(206, 7, 32, 4, TE_G1);             /* the level */
+            cv_rect(206, 7, (int32_t)level * 32 / 127, 4, selected ? col : TE_G3);
+        }
+        cv_blit(0, 40 + i * 18);
     }
     {   /* KNOB 1 swing (the global groove), 2 level, 3 steps, 4 pan of the selected track */
         track_t *t = TSEL;
@@ -272,7 +292,7 @@ static void studio_tracks_draw(void)
         static const char *const lab[4] = {"swing", "level", "steps", "pan"};
         const char *val[4] = {v[0], v[1], v[2], v[3]};
         int32_t ratio[4];
-        uint32_t lvl = is_drum(t) ? song.g[G_DRLVL] : t->p[P_LEVEL];
+        uint32_t lvl = (uint32_t)t->p[P_LEVEL];
         swing_str(v[0], song.g[G_SWING]);
         fmt_int(v[1], t->p[P_MUTE] ? 0 : (int32_t)lvl * 100 / 127);
         fmt_int(v[2], t->p[P_SLEN]);
@@ -290,7 +310,7 @@ static const char *const LV_NAME[4] = {"norm", "ghost", "soft", "hard"};
 static uint32_t lvl_rank(uint32_t lvl);                 /* (below) ghost 0, soft 1, norm 2, hard 3 */
 static uint16_t lvl_col(uint32_t lvl)                   /* a hit's colour by its level */
 {
-    return lvl == LV_GHOST ? TE_DIM[3] : lvl == LV_SOFT ? TE_MID[3] : lvl == LV_HARD ? C_WHITE : TE_DRUM;
+    return lvl == LV_GHOST ? TRK_DIM[(uint32_t)(TDRUM - trk) % NTRK] : lvl == LV_SOFT ? TRK_MID[(uint32_t)(TDRUM - trk) % NTRK] : lvl == LV_HARD ? C_WHITE : TE_DRUM;
 }
 static uint16_t pad_lit[DRUM_LANES];                   /* pads and key LEDs: frames left lit */
 static uint8_t key_lit[27];                             /* menu NOTES, a synth track: frames its key stays lit */
@@ -424,11 +444,11 @@ static void drum_screen_draw(void)
             te_dials(184, LG, val, ratio, 1u, &footer);
         } else {
             fmt_int(v[0], (int32_t)kit + 1);
-            fmt_int(v[1], song.g[G_DRLVL] * 100 / 127);
+            fmt_int(v[1], TDRUM->p[P_LEVEL] * 100 / 127);   /* (the drum track's own level, on the drum bus) */
             fmt_int(v[2], song.g[G_DRREV] * 100 / 127);
             fmt_int(v[3], TDRUM->p[P_PAN]);
             ratio[0] = (int32_t)kit * 1000 / (int32_t)(DRUM_KITS - 1u);
-            ratio[1] = song.g[G_DRLVL] * 1000 / 127;
+            ratio[1] = TDRUM->p[P_LEVEL] * 1000 / 127;
             ratio[2] = song.g[G_DRREV] * 1000 / 127;
             ratio[3] = (TDRUM->p[P_PAN] + 64) * 1000 / 127;
             te_dials(184, LK, val, ratio, 2u, &footer);
@@ -441,7 +461,7 @@ static const uint8_t LV_UP[4] = {LV_GHOST, LV_SOFT, LV_NORM, LV_HARD};
 static uint32_t lvl_rank(uint32_t lvl) { return lvl == LV_GHOST ? 0u : lvl == LV_SOFT ? 1u : lvl == LV_NORM ? 2u : 3u; }
 
 /* the GRID page shown, no layer held: its keys are steps (seq.c kb_grid) */
-static int grid_keys_on(void) { return on_drum_page() && !drum_page && song.sel == TRK_DRUM && !ui.menu; }
+static int grid_keys_on(void) { return on_drum_page() && !drum_page && is_drum(TSEL) && !ui.menu; }
 /* a key down on the GRID page: the white keys are the 16 steps of this page of steps for the sound of
  * KNOB 1 — an empty one is set (NORM, the sound heard), a set one cleared; the first four black keys
  * pick the page (steps 1-16, 17-32, 33-48, 49-64), as in the SEQ layer. The cursor follows */
@@ -491,7 +511,7 @@ static void drum_screen_input(uint32_t pressed, uint32_t home)
 {
     uint32_t k, b;
     int32_t s;
-    if (song.sel != TRK_DRUM || home == 1u) {
+    if (!is_drum(TSEL) || home == 1u) {
         go_home();
         return;
     }
@@ -516,8 +536,8 @@ static void drum_screen_input(uint32_t pressed, uint32_t home)
         ui.force = 1;
     }
     if ((s = panel_enc(EN_ALGO)) && !ft_on) {
-        track_select((uint32_t)clamp((int32_t)song.sel + s, 0, 3));
-        if (song.sel != TRK_DRUM) {
+        track_select((uint32_t)clamp((int32_t)song.sel + s, 0, NTRK - 1));
+        if (!is_drum(TSEL)) {
             go_home();
             return;
         }
@@ -554,7 +574,7 @@ static void drum_screen_input(uint32_t pressed, uint32_t home)
             }
         } else {
             if (k == 0) TDRUM->p[P_E0] = (int16_t)clamp(TDRUM->p[P_E0] + s, 0, DRUM_KITS - 1);
-            if (k == 1) song.g[G_DRLVL] = (int16_t)clamp(song.g[G_DRLVL] + s, 0, 127);
+            if (k == 1) TDRUM->p[P_LEVEL] = (int16_t)clamp(TDRUM->p[P_LEVEL] + s, 0, 127);
             if (k == 2) song.g[G_DRREV] = (int16_t)clamp(song.g[G_DRREV] + s, 0, 127);
             if (k == 3) TDRUM->p[P_PAN] = (int16_t)clamp(TDRUM->p[P_PAN] + s, -64, 63);
         }
@@ -578,13 +598,13 @@ static void te_digit(int32_t x, int32_t y, int32_t w, int32_t h, int32_t t, uint
 }
 
 static uint8_t rec_shown;
-/* the four tracks, compact, from y0: the one that records is framed in red */
+/* the eight tracks, compact, from y0 (two columns of four): the one that records is framed in red */
 static void rec_rows(uint32_t rt, uint32_t take, uint32_t y0, uint32_t *cache)
 {
-    uint32_t sig = rt * 3u + rec_wait + take * 5u + drum_kit() * 977u + y0, i, j;
+    uint32_t sig = rt * 3u + rec_wait + take * 5u + y0, i, j;
     for (i = 0; i < NTRK; i++) {
         char b[16];
-        if (i == TRK_DRUM) str_cpy(b, DRUM_KIT_NAMES[drum_kit()], sizeof b);
+        if (is_drum(&trk[i])) str_cpy(b, DRUM_KIT_NAMES[drum_kit_of(&trk[i])], sizeof b);
         else trk_short_name(i, b);
         sig = studio_hash(sig, b) + (uint32_t)trk[i].p[P_SLEN] * 31u;
         for (j = 0; j < NSTEP; j++) sig = sig * 3u + (uint32_t)trk_step_on(&trk[i], j);
@@ -596,19 +616,20 @@ static void rec_rows(uint32_t rt, uint32_t take, uint32_t y0, uint32_t *cache)
     for (i = 0; i < NTRK; i++) {
         const track_t *t = &trk[i];
         uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, 64), armed = i == rt;
-        int32_t y = (int32_t)i * 19;
+        int32_t x = (int32_t)(i / 4u) * 120, y = (int32_t)(i % 4u) * 19;
         char b[16];
-        if (armed) cv_rect(0, y, 240, 18, TE_RED), cv_rect(1, y + 1, 238, 16, C_BLACK);
-        cv_rect(4, y + 3, 12, 12, armed ? TE_COL[i] : TE_DIM[i]);
-        if (i == TRK_DRUM) str_cpy(b, DRUM_KIT_NAMES[drum_kit()], sizeof b);
+        if (armed) cv_rect(x, y, 120, 18, TE_RED), cv_rect(x + 1, y + 1, 118, 16, C_BLACK);
+        cv_rect(x + 3, y + 4, 10, 10, armed ? TRK_COL[i] : TRK_DIM[i]);
+        if (is_drum(t)) str_cpy(b, DRUM_KIT_NAMES[drum_kit_of(t)], sizeof b);
         else trk_short_name(i, b);
-        b[10] = 0;
-        cv_text(22, y + 1, &FONT_S, b, armed ? C_WHITE : TE_G3);
+        te_lower(b, b, sizeof b);
+        b[5] = 0;
+        cv_text(x + 16, y + 1, &FONT_S, b, armed ? C_WHITE : TE_G3);
         for (j = 0; j < 16u; j++) {
             uint32_t a = j * len / 16u, z = (j + 1u) * len / 16u, k, on = 0;
             if (z == a) z = a + 1u;
             for (k = a; k < z && k < NSTEP; k++) if (trk_step_on(t, k)) on = 1;
-            cv_rect(106 + (int32_t)j * 8, y + 5, 6, 8, on ? (armed ? TE_COL[i] : TE_DIM[i]) : TE_G1);
+            cv_rect(x + 56 + (int32_t)j * 4, y + 5, 3, 8, on ? (armed ? TRK_COL[i] : TRK_DIM[i]) : TE_G1);
         }
     }
     cv_blit(0, y0);
@@ -649,7 +670,7 @@ static void rec_screen_draw(void)
             cv_rect(132, 6, 1, 54, TE_G1);
             if (bars) {
                 fmt_int(b, (int32_t)bars);
-                cv_text(146, 4, &FONT_L, b, TE_COL[rt & 3u]);
+                cv_text(146, 4, &FONT_L, b, TRK_COL[rt % NTRK]);
                 cv_text(146 + text_w(&FONT_L, b) + 6, 18, &FONT_S, bars == 1u ? "bar" : "bars", TE_G3);
                 fmt_int(b, (int32_t)bpm);
                 cv_text(146, 42, &FONT_S, b, C_WHITE);

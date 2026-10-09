@@ -1,31 +1,35 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Felucca core types: tracks, voices, engines, parameters.
- * Four tracks: tracks 1..3 are synth parts (each its own engine, preset, parameters,
- * voices and 64-step pattern), track 4 is the GM drum part (drums.c; its own voices,
- * pattern and the pattern parameters of its track_t). The parts share one budget of
+ * NoteSorcery: eight tracks. Tracks 1..6 are synth parts (each its own engine, preset, parameters,
+ * voices and 64-step pattern), tracks 7 and 8 are drum machines (drums.c; their own voices,
+ * pattern and the pattern parameters of their track_t). The parts share one budget of
  * NVOICE sounding voices (voice.c). */
 #include <stdint.h>
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPOLY 8
-#define NPART 3                  /* synth parts: tracks 1..3 */
-#define NTRK 4                   /* + the drum track */
-#define TRK_DRUM 3
+#define NPART 6                  /* synth parts: tracks 1..6 */
+#define NDRUMTRK 2               /* drum tracks: 7 and 8 */
+#define NTRK (NPART + NDRUMTRK)  /* (a bit per track in uint8_t masks: song.rec, song.solo) */
+#define TRK_DRUM NPART           /* the first drum track */
 enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #define NSTEP 64
 #define HALF_FRAMES 256          /* I2S half buffer: 5.8 ms at 44.1 kHz */
 #ifndef FELUCCA_SLICE
 #define FELUCCA_SLICE 0          /* the SLICE engine (eng_slice.c): kept in the tree, not built by default */
 #endif
-/* SLOOP 2.4: FM6 (eng_fm6.c) is engine 9 in every build; SLICE, when built, comes last (10). Projects and user
- * presets store the engine index as a byte, and no shipped SLOOP was built with SLICE, so its number is stored
- * nowhere: FM6 may take 9 and SLICE moves up (engines.c ENGINES[], params.c N_ENGNAME follow this order) */
-#define NENGINES (12 + FELUCCA_SLICE)
-#define ENGI_GRAIN 8u            /* GRAIN, PHYS, NOISE (SLOOP 2.5, appended after FM6: the stores keep the numbers) */
-#define ENGI_PHYS 10u
-#define ENGI_NOISE 11u
-#define ENGI_SLICE 12u           /* with FELUCCA_SLICE: after NOISE */
-#define ENGI_FM6 9u              /* the FM6 engine's index (eng_fm6.c, the stores: append-only) */
+/* NoteSorcery: the engine table was renumbered (projects are format NSP1, older ones are not read): ANALOG, TRIO,
+ * FM6, SAMPLE, then the engines NoteSorcery adds; SLICE, when built, comes last. The engine index is stored as a
+ * byte in projects and user presets: append new engines, never reorder (engines.c ENGINES[], params.c N_ENGNAME) */
+#define ENGI_ANALOG 0u
+#define ENGI_TRIO 1u
+#define ENGI_FM6 2u              /* the FM6 engine's index (eng_fm6.c) */
+#define ENGI_SAMPLE 3u
+#define ENGI_ACID 4u             /* NoteSorcery: a TB-303 (eng_acid.c, X0X's Open303) */
+#define ENGI_WAVE 5u             /* NoteSorcery: single-cycle waves (eng_wave.c) */
+#define NENGINES_CORE 6u         /* the engines every build has */
+#define NENGINES (NENGINES_CORE + FELUCCA_SLICE)
+#define ENGI_SLICE NENGINES_CORE /* with FELUCCA_SLICE: after the others */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
 #define NELEM(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -81,7 +85,8 @@ enum {                          /* global parameters */
     G_DUST, G_DUCK, G_FILT,     /* the master bus: lo-fi / vinyl, the kick ducking the parts, the DJ filter (fx.c) */
     G_ROLL,                     /* note repeat rate (ARP + key, seq.c) */
     G_NEWPRJ,                   /* TOOLS > NEW: a new project (GO) */
-    G_DRDLY,                    /* SLOOP 2.5: the drums' delay send (GLO > DRUMS; a project keeps it in its own byte) */
+    G_DRDLY,                    /* SLOOP 2.5: the drums' delay send (GLO > DRUMS) */
+    G_GEN,                      /* NoteSorcery: TOOLS > GEN, a 303 line on the selected synth track (GO) */
     G_COUNT
 };
 
@@ -287,7 +292,7 @@ typedef struct {
     int32_t batt_raw;            /* smoothed ADC ch3 (battery divider), 0 = not read yet */
 } song_t;
 
-static track_t trk[NTRK];        /* the instrument: three parts and the drum track */
+static track_t trk[NTRK];        /* the instrument: six parts and two drum tracks */
 static song_t song;
 
 /* The transport clock (seq.c runs it). One unit = one sample at 1 BPM: a beat is BEAT_U units at any
@@ -321,8 +326,17 @@ static uint32_t div_samples(uint32_t div) { return div_units(div) / (uint32_t)so
 /* length of the delay's TIME (N_DLY order) in samples at the song tempo (rounded down) */
 static uint32_t dly_samples(uint32_t d) { return dly_units(d) / (uint32_t)song.g[G_BPM]; }
 #define TSEL (&trk[song.sel])    /* the selected track */
-#define TDRUM (&trk[TRK_DRUM])
-static int is_drum(const track_t *t) { return t == TDRUM; }
+/* the drum track the drum screens, keys and pads work on: the selected one, else the last one selected */
+static uint8_t drum_focus;
+static track_t *tdrum(void)
+{
+    if (song.sel >= TRK_DRUM && song.sel < NTRK)
+        drum_focus = (uint8_t)(song.sel - TRK_DRUM);
+    return &trk[TRK_DRUM + drum_focus % NDRUMTRK];
+}
+#define TDRUM (tdrum())
+static int is_drum(const track_t *t) { return (uint32_t)(t - trk) >= TRK_DRUM; }
+static uint32_t drum_no(const track_t *t) { return (uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK; }   /* 0, 1 */
 /* silent: MUTE, or another track is soloed */
 static int trk_silent(const track_t *t)
 {

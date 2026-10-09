@@ -14,10 +14,11 @@ import os
 import re
 import sys
 
-FUNCS = ["analog_render", "digital_render", "phase_render", "lofi_render", "sample_render", "formant_render",
-         "trio_render", "trio_pass", "drawbar_render", "drawbar_block",
-         "grain_render", "grain_block", "slicer_track", "drums_mix",
+FUNCS = ["analog_render", "sample_render",
+         "trio_render", "trio_pass", "slicer_track", "drums_mix",
          "fm6_op_run", "fm6_op_fb", "fm6_render",     # FM6 (SLOOP 2.4): the operator loops (noinline), the voice
+         "wave_render", "bass303_render",             # NoteSorcery: WAVE, ACID (X0X's bass303: its sample loop inlined here)
+         "d8_render", "d9_render",                    # NoteSorcery: the 808 CM / 909 CM kits (X0X's 8W8, 9W9)
          "fm1_alnk0_irq"]
 TOL = 0.10                      # exact (no noise): small edits pass, a grown render loop does not
 DIV_W = 8                       # a divide weighs 1 + 8 instructions

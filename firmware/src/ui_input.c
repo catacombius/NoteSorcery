@@ -126,19 +126,20 @@ static uint32_t keys_lit(void)
         if (lights_notes)                          /* NOTES: the scale goes dim (keys_notes_dim), what sounds lit */
             return (blink ? scale_keys(1) : 0u) | keys_sounding(t) | fm1_in.notes;
         return scale_keys(0) & ~(blink ? 0u : scale_keys(1));
-    case LY_MIX:                                   /* tracks heard: 1..4; soloed: 5..8; a fill: 9, armed / on: 10; tap: the beat */
-        for (i = 0; i < 4u; i++) {
+    case LY_MIX:                                   /* tracks heard: 1..8; soloed: 9..16; a fill, armed / on: black 1, 2;
+                                                    * tap: the beat (black 3) */
+        for (i = 0; i < NTRK; i++) {
             if (!trk_silent(&trk[i]))
                 m |= 1u << key_of_white(i);
             if ((song.solo >> i) & 1u)
-                m |= 1u << key_of_white(4u + i);
+                m |= 1u << key_of_white(NTRK + i);
         }
         if (fill_now)
-            m |= 1u << key_of_white(8);
+            m |= 1u << MIX_K_FILL;
         if (fill_arm || fill_bar_on)
-            m |= 1u << key_of_white(9);
+            m |= 1u << MIX_K_BAR;
         if (play_led())
-            m |= 1u << key_of_white(15);
+            m |= 1u << MIX_K_TAP;                  /* (tap tempo: the beat) */
         return m;
     case LY_ERASE:                                 /* the sounds the pattern holds (NOTES: dim, the hits lit) */
         return (lights_notes ? 0u : erase_lanes(t)) | fm1_in.notes | (lights_notes ? keys_sounding(t) : 0u);
@@ -278,8 +279,8 @@ static void tracks_edit(uint32_t slot, int32_t steps)
             t->p[P_MUTE] = 0;
             return;
         }
-        vp = is_drum(t) ? &song.g[G_DRLVL] : &t->p[P_LEVEL];
-        d = is_drum(t) ? &GP[G_DRLVL] : &TP[P_LEVEL];
+        vp = &t->p[P_LEVEL];                    /* (a drum track: its own level, on the drum bus) */
+        d = &TP[P_LEVEL];
         break;
     case 2:
         vp = &t->p[P_SLEN];
@@ -344,7 +345,8 @@ static void project_new(void)
         }
         fm1_irq_on();
     }
-    TDRUM->p[P_E0] = DRUM_DEFAULT_KIT;
+    for (i = 0; i < NDRUMTRK; i++)
+        trk[TRK_DRUM + i].p[P_E0] = (int16_t)DRUM_DEFAULT_KIT_OF(i);
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_DRCH && i != G_SYNC && i != G_MIDI && i != G_ROUTE)
             song.g[i] = GP[i].def;
@@ -409,7 +411,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
     if (!v)
         return;
-    if (pg->scope == SC_GLOBAL && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
+    if (pg->scope == SC_GLOBAL && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ ||
+                                   id == G_GEN) &&
         ui.arm != id) {                                   /* one detent arms, a second one within ~1.5 s acts */
         *vp = 0;
         ui.arm = (uint8_t)id;
@@ -436,6 +439,19 @@ static void edit_param(uint32_t slot, int32_t steps)
         track_defaults_steps(TSEL);
         fm1_irq_on();
         ui_message("PATTERN CLEARED");
+        break;
+    case G_GEN:                                           /* NoteSorcery: a 303 line, a new one each time */
+        *vp = 0;
+        if (is_drum(TSEL)) {
+            ui_message("A SYNTH TRACK");
+            break;
+        }
+        undo_mark(TSEL, (undo_sess += 4u) | 3u);
+        fm1_irq_off();
+        tb3po_fill(TSEL, fm1_ms ^ ((uint32_t)song.sel << 24));
+        fm1_irq_on();
+        ui_message("303 LINE");
+        sync_reload = 1;
         break;
     case G_INITSND:
         *vp = 0;

@@ -87,22 +87,53 @@ int main(void)
     nor[st_sector(OBJ_PROJECT0 + 2, 0) + 8] ^= 0x01;    /* both headers broken */
     nor[st_sector(OBJ_PROJECT0 + 2, 1) + 8] ^= 0x01;
     bad += check("both headers broken -> nothing", st_load(OBJ_PROJECT0 + 2, got, sizeof got) < 0);
-    {   /* every copy of every object in the Felucca regions, off the sample slots (0xA0000..0xDBFFF) and
-         * the update staging (0xE0000..0xE4FFF; the FM6 bank's two sectors follow it), and no two sectors shared */
+    {   /* NoteSorcery: every copy of every object (a project: two sectors) in the store's regions, off the
+         * sample slots (USR1..3 0xA0000..0xCFFFF, USR4 0xE7000..0xF6FFF) and the update staging (0xE0000..0xE4FFF),
+         * and no two copies sharing a sector */
         uint32_t o, c, o2, c2, inside = 1, apart = 1;
         for (o = 0; o < OBJ_COUNT; o++)
             for (c = 0; c < 2u; c++) {
-                uint32_t a = st_sector(o, c);
-                int data = a >= 0x97000u && a + 4096u <= 0xA0000u, ups = a >= 0xDC000u && a + 4096u <= 0xE0000u;
-                int glob = a >= 0xFC000u && a + 4096u <= 0xFF000u, fm6 = a >= 0xE5000u && a + 4096u <= 0xE7000u;
-                inside &= (data || ups || glob || fm6) && !(a & 0xFFFu);
+                uint32_t a = st_sector(o, c), n = st_big(o) ? ST_BIG_SECTORS * 4096u : 4096u;
+                int data = a >= 0x97000u && a + n <= 0xA0000u, ups = a >= 0xDC000u && a + n <= 0xE0000u;
+                int secs = (a >= 0xD0000u && a + n <= 0xDC000u) || (a >= 0xF7000u && a + n <= 0xFB000u);
+                int glob = a >= 0xFC000u && a + n <= 0xFF000u, fm6 = a >= 0xE5000u && a + n <= 0xE7000u;
+                inside &= (data || ups || secs || glob || fm6) && !(a & 0xFFFu);
                 for (o2 = 0; o2 < OBJ_COUNT; o2++)
-                    for (c2 = 0; c2 < 2u; c2++)
-                        if ((o2 != o || c2 != c) && st_sector(o2, c2) == a)
+                    for (c2 = 0; c2 < 2u; c2++) {
+                        uint32_t b = st_sector(o2, c2), m = st_big(o2) ? ST_BIG_SECTORS * 4096u : 4096u;
+                        if ((o2 != o || c2 != c) && b < a + n && a < b + m)
                             apart = 0;
+                    }
             }
-        bad += check("data stays in the Felucca regions (autosave too)", inside);
-        bad += check("every object copy has its own sector", apart);
+        bad += check("data stays in the store's regions (autosave too)", inside);
+        bad += check("every object copy has its own sectors", apart);
+    }
+    {   /* NoteSorcery: a project takes two sectors; saved, torn, loaded */
+        static uint8_t big[7604], big2[7604], gotb[7604];
+        uint32_t i;
+        memset(nor, 0xFF, sizeof nor);
+        for (i = 0; i < sizeof big; i++) {
+            big[i] = (uint8_t)(i * 7u + 3u);
+            big2[i] = (uint8_t)(i * 13u + 1u);
+        }
+        bad += check("big: a project (7604 B) saves", st_save(OBJ_PROJECT0 + 3, big, sizeof big) == 0);
+        n = st_load(OBJ_PROJECT0 + 3, gotb, sizeof gotb);
+        bad += check("big: ... and loads whole", n == (int)sizeof big && !memcmp(gotb, big, sizeof big));
+        fail_after = 20;                              /* the second save torn in its second sector */
+        st_save(OBJ_PROJECT0 + 3, big2, sizeof big2);
+        fail_after = -1;
+        n = st_load(OBJ_PROJECT0 + 3, gotb, sizeof gotb);
+        bad += check("big: a torn save keeps the last one", n == (int)sizeof big && !memcmp(gotb, big, sizeof big));
+        bad += check("big: saves again", st_save(OBJ_PROJECT0 + 3, big2, sizeof big2) == 0);
+        n = st_load(OBJ_PROJECT0 + 3, gotb, sizeof gotb);
+        bad += check("big: ... the newer copy loads", n == (int)sizeof big2 && !memcmp(gotb, big2, sizeof big2));
+        bad += check("big: the payload in place (XIP reads it there)",
+                     st_payload_off(OBJ_PROJECT0 + 3) && !memcmp(nor + st_payload_off(OBJ_PROJECT0 + 3), big2, sizeof big2));
+        nor[st_payload_off(OBJ_PROJECT0 + 3) + 5000u] ^= 0x40u;   /* rot in its second sector */
+        n = st_load(OBJ_PROJECT0 + 3, gotb, sizeof gotb);
+        bad += check("big: rot in the newer copy -> the older one", n == (int)sizeof big && !memcmp(gotb, big, sizeof big));
+        bad += check("big: too big for two sectors: refused", st_save(OBJ_PROJECT0, nor, ST_BIG_PAYLOAD_MAX + 1u) == -1);
+        bad += check("big: a one-sector object stays one sector", st_save(OBJ_SETTINGS, big, ST_PAYLOAD_MAX + 1u) == -1);
     }
     {   /* SLOOP 2.5: the settings in two parts (persist_t, then the SYN kits): one record, A/B as any other */
         static char p1[88], p2[1464], all[88 + 1464], got2[88 + 1464];

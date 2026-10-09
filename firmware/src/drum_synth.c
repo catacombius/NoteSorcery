@@ -2,7 +2,8 @@
 /* Synthesised drum kits (drums.c kits DRUM_SAMPLED..): analogue-style models in fixed point, in the
  * spirit of the classic drum machines. Every sound of a kit is one dsnd_t, written in musical units
  * by tools/gen_drumkits.py (felucca_drumkits.h). A sound is up to four layers into one filter:
- *   tone   SINE / TRI / SQUARE / FM / BELL (two squares 1 : 1.48), with an exponential pitch drop
+ *   tone   SINE / TRI / SQUARE / FM / BELL (two squares 1 : 1.48) / EFM (NoteSorcery: 2-op FM, the modulator
+ *          at T2 / 32 x the tone, index T2LEV, falling with the tone: the Machinedrum-style kits), with an exponential pitch drop
  *          (BEND semitones over BTIME); its envelope HOLDs at full, then decays. A second partial
  *          (T2: a sine at RATIO x the tone, decaying twice as fast): the second mode of a drum head
  *   click  the attack: a 1-2 ms burst of bright noise (the beater, the stick)
@@ -14,7 +15,7 @@
  *   out    drive (tanh), the kit's crush (bit depth, sample-and-hold), the sound's level
  * The envelopes, the pitch and the filter run at the control rate (CTL samples) and are ramped
  * per sample. Cost: ~50-60 integer ops per voice and sample (METAL: +6 adds). */
-enum { DW_NONE, DW_SINE, DW_TRI, DW_SQUARE, DW_FM, DW_BELL };
+enum { DW_NONE, DW_SINE, DW_TRI, DW_SQUARE, DW_FM, DW_BELL, DW_EFM };
 enum { DN_NONE, DN_WHITE, DN_METAL, DN_CYM, DN_CHIP, DN_CLAP = 0x10 };
 enum { DF_OFF, DF_LP, DF_BP, DF_HP, DF_ALL = 4 };   /* flt: mode | DF_ALL (the tone too) | res << 3 */
 typedef struct {
@@ -223,6 +224,10 @@ static int ds_render(dsv_t *s, int32_t *out, uint32_t n)
                 tone = sine_i(s->ph + ((uint32_t)(sine_i(s->ph2) * a) << 1));
                 s->ph2 += (uint32_t)inc + ((uint32_t)inc >> 2) + ((uint32_t)inc >> 3) + ((uint32_t)inc >> 5);
                 break;
+            case DW_EFM:                                /* 2-op FM: the ratio T2 / 32, the index T2LEV x the tone's envelope */
+                s->ph3 += ((uint32_t)inc >> 5) * d->t2;
+                tone = sine_i(s->ph + ((uint32_t)(sine_i(s->ph3) * mulq15(a, t2l)) << 2));
+                break;
             default:                                    /* BELL: two squares */
                 tone = ((int32_t)s->ph < 0 ? -12000 : 12000) + ((int32_t)s->ph2 < 0 ? -12000 : 12000);
                 s->ph2 += (uint32_t)inc + ((uint32_t)inc >> 1) - ((uint32_t)inc >> 6);
@@ -230,7 +235,7 @@ static int ds_render(dsv_t *s, int32_t *out, uint32_t n)
             }
             s->ph += (uint32_t)inc;
             tone = mulq15(tone, a);
-            if (d->t2) {                                /* the second mode: a sine, decaying twice as fast */
+            if (d->t2 && wave != DW_EFM) {              /* the second mode: a sine, decaying twice as fast */
                 s->ph3 += ((uint32_t)inc >> 5) * d->t2;
                 tone += mulq15(mulq15(sine_i(s->ph3), mulq15(a, a)), t2l);
             }
@@ -351,7 +356,7 @@ static void dsu_defaults(void)
 /* a sound into the ranges the voices expect (ds_on / ds_render index tables with them) */
 static void dsu_fix_sound(dsnd_t *d)
 {
-    if (d->wave > DW_BELL) d->wave = DW_SINE;
+    if (d->wave > DW_EFM) d->wave = DW_SINE;
     if ((d->src & 15u) > DN_CHIP || (d->src & ~(uint8_t)(15u | DN_CLAP))) d->src = DN_WHITE;
     if (d->pitch > 127u) d->pitch = 127;
     d->fine &= 15u;

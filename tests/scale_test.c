@@ -65,7 +65,7 @@ static void mapping_test(void)
         TDRUM->p[P_QUANT] = 2;
         assert(kb_map(TDRUM, k) == LANE_NOTE[lane_of_key(k)]);
     }
-    t->engine = t->eng_req = 4;
+    t->engine = t->eng_req = ENGI_SAMPLE;
     if (drum_set() >= 0) {
         t->p[P_E0] = (int16_t)drum_set();
         for (k = 0; k < 27u; k++)

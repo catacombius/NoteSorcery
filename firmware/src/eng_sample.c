@@ -18,13 +18,7 @@ typedef struct {
 } smp_set_t;
 #include "felucca_samples.h"
 
-static const int16_t IMA_STEP[89] = {
-    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97,
-    107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
-    876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428,
-    4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350,
-    22385, 24623, 27086, 29794, 32767};
-static const int8_t IMA_IDX[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
+#include "ima.h"                                    /* IMA_STEP, IMA_IDX (usb_sample.c encodes with them) */
 /* 2^(i/192), Q16: pitch ratios in 1/16 semitones, d16 >= -3072 (16 octaves down) */
 static uint32_t pow2_q16(int32_t d16)
 {
@@ -34,14 +28,15 @@ static uint32_t pow2_q16(int32_t d16)
 }
 
 /* ---- user sample slots (loaded from the web editor into flash, see web/EDITOR_PROTOCOL.md)
- * 4 slots of 80 KiB: 3 at flash 0xA0000.., USR4 at 0xE7000 (Felucca data regions), read through the plain XIP
+ * 4 slots of 64 KiB (NoteSorcery; SLOOP had 80 KiB: the 8-track projects took the rest): 3 at flash 0xA0000..,
+ * USR4 at 0xE7000 (Felucca data regions), read through the plain XIP
  * window. Slot = header (magic, count, name, data length, CRC32) + up to 16 zones in the
  * smp_zone_t layout (off relative to the slot's data at +512) + IMA ADPCM data. */
 #include "../hal/fm1_xip.h"   /* relative: hostsim includes this file too */
 #define SMP_USER_SLOTS 4
-#define SMP_USER_BASE 0xA0000u                      /* USR1..USR3: 0xA0000..0xDBFFF */
-#define SMP_USER4_BASE 0xE7000u                     /* USR4 (2.4): the free flash after the FM6 bank, 0xE7000..0xFAFFF */
-#define SMP_USER_SIZE 0x14000u
+#define SMP_USER_BASE 0xA0000u                      /* USR1..USR3: 0xA0000..0xCFFFF */
+#define SMP_USER4_BASE 0xE7000u                     /* USR4 (2.4): the free flash after the FM6 bank, 0xE7000..0xF6FFF */
+#define SMP_USER_SIZE (64u * 1024u)
 #define SMP_USER_OFF(k) ((k) < 3u ? SMP_USER_BASE + (k) * SMP_USER_SIZE : SMP_USER4_BASE)
 #define SMP_USER_DATA 512u
 #define SMP_USER_MAGIC 0x504D5346u                  /* "FSMP" */

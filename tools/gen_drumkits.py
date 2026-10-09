@@ -14,12 +14,13 @@ sound, and every kit comes out as loud as the others, each lane at its place in 
 import copy
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
 LANES = ["KICK", "SNARE", "CLAP", "CHH", "OHH", "TOMLO", "TOMHI", "CRASH", "RIDE", "SHAKER",
          "CONGA", "RIM", "COWBELL", "CLAVE", "KICK2", "SNARE2"]
-WAVE = {None: 0, "sine": 1, "tri": 2, "square": 3, "fm": 4, "bell": 5}
+WAVE = {None: 0, "sine": 1, "tri": 2, "square": 3, "fm": 4, "bell": 5, "efm": 6}   # efm: t2 = ratio, t2lev = index
 SRC = {None: 0, "white": 1, "metal": 2, "cym": 3, "chip": 4, "clap": 0x11}
 FMODE = {None: 0, "lp": 1, "bp": 2, "hp": 3}
 LEVELS_FILE = Path(__file__).with_name("drumkit_levels.json")
@@ -198,6 +199,41 @@ KFM = dict(
     CLAVE=S("fm", 2300, 0, 5, 0, 40, 100),
 )
 
+# Machinedrum-style kits (NoteSorcery; in the manner of Elektron's EFM and TRX machines, not affiliated): EFM is
+# 2-op FM (t2: the modulator's ratio, t2lev: its index, falling with the tone), TRX the punchy analogue models
+KMD_EFM = dict(
+    KICK=S("efm", 50, 24, 22, 6, 380, 124, 1.0, 72, click=22, drive=24),
+    KICK2=S("efm", 44, 18, 40, 10, 650, 124, 0.5, 96, drive=44),
+    SNARE=S("efm", 185, 10, 16, 0, 130, 100, 1.5, 92, 14, "white", 92, 0, 170, ("hp", 1500, .15)),
+    SNARE2=S("efm", 240, 8, 10, 0, 90, 96, 2.31, 104, 20, "white", 84, 0, 110, ("bp", 5000, .3)),
+    CLAP=S("efm", 900, 0, 5, 0, 25, 40, 2.6, 110, src="clap", nlev=118, ndec=200, filt=("bp", 1250, .4), hpf=700),
+    CHH=S("efm", 3100, 0, 5, 0, 38, 92, 3.17, 127, src="white", nlev=50, ndec=30, filt=("hp", 6500, .2, "all")),
+    OHH=S("efm", 3100, 0, 5, 0, 340, 88, 3.17, 127, src="white", nlev=48, nhold=10, ndec=300, filt=("hp", 6200, .2, "all")),
+    TOMLO=S("efm", 95, 12, 60, 8, 380, 120, 1.0, 50, 10),
+    TOMHI=S("efm", 150, 12, 60, 8, 320, 118, 1.0, 50, 10),
+    CRASH=S("efm", 1200, 0, 5, 0, 1500, 70, 3.73, 127, src="cym", nlev=90, nhold=10, ndec=1700, filt=("hp", 4200, .2)),
+    RIDE=S("efm", 900, 0, 5, 0, 1300, 84, 2.76, 112, 8, src="metal", nlev=40, ndec=900, filt=("bp", 5500, .4, "all")),
+    SHAKER=S(None, src="white", nlev=92, nhold=10, ndec=50, filt=("bp", 7500, .3)),
+    CONGA=S("efm", 320, 4, 25, 4, 210, 116, 1.0, 40, 16),
+    RIM=S("efm", 1000, 2, 5, 0, 28, 104, 1.62, 92, 40),
+    COWBELL=S("efm", 560, 0, 5, 6, 260, 110, 1.48, 64, filt=("bp", 2400, .45, "all")),
+    CLAVE=S("efm", 2400, 0, 5, 0, 42, 108, 1.0, 30, 10),
+)
+KMD_TRX = kit(K909,
+    KICK=S("sine", 54, 32, 16, 12, 300, 124, click=76, drive=56, src="white", nlev=36, ndec=5, filt=("lp", 5500, .1)),
+    KICK2=S("sine", 48, 20, 30, 20, 520, 124, click=40, drive=80),
+    SNARE=S("tri", 200, 9, 12, 0, 120, 94, 1.6, 74, 34, "white", 118, 4, 200, ("hp", 1200, .12), drive=30),
+    SNARE2=S("sine", 330, 6, 8, 0, 70, 90, 1.5, 60, 46, "white", 112, 0, 120, ("bp", 6500, .35)),
+    CLAP=dict(nlev=126, ndec=260, filt=("bp", 1350, .45), hpf=800),
+    CHH=S(None, 250, src="metal", nlev=116, ndec=38, filt=("bp", 9800, .45), hpf=7500, click=10),
+    OHH=S(None, 250, src="metal", nlev=112, nhold=14, ndec=360, filt=("bp", 9400, .42), hpf=7000),
+    TOMLO=S("sine", 85, 24, 120, 12, 420, 120, 1.5, 36, 26, "white", 22, 0, 30, ("lp", 2600, .1)),
+    TOMHI=S("sine", 135, 24, 120, 12, 360, 118, 1.5, 36, 26, "white", 22, 0, 30, ("lp", 3200, .1)),
+    CONGA=S("sine", 290, 6, 30, 4, 240, 116, 1.5, 30, 28),
+    COWBELL=S("bell", 600, 0, 5, 4, 230, 108, filt=("bp", 2700, .5, "all"), drive=20),
+    SHAKER=S(None, src="white", nlev=100, nhold=4, ndec=45, filt=("hp", 7000, .3)),   # TRX-MA
+)
+
 KITS = [
     # -- the machines
     ("808", "HIP HOP", 0, K808),
@@ -364,6 +400,11 @@ KITS = [
         RIDE=S(None, 320, src="cym", nlev=90, ndec=2400, filt=("bp", 6500, .35), hpf=3500, click=16),
         TOMLO=S("sine", 110, 3, 30, 6, 400, 106, 1.5, 40, 20, "white", 16, 0, 40, ("lp", 2000, .1)),
         TOMHI=S("sine", 160, 3, 30, 6, 340, 104, 1.5, 40, 20, "white", 16, 0, 40, ("lp", 2500, .1)))),
+    # -- NoteSorcery: Machinedrum-style
+    ("MD EFM", "MACHINEDRUM", 0, KMD_EFM),
+    ("MD TRX", "MACHINEDRUM", 0, KMD_TRX),
+    ("MD SRR", "MD LO-FI", 0x24, kit(KMD_EFM,                    # the sample-rate reduction the MD is loved for
+        KICK=dict(drive=60), SNARE=dict(t2lev=120, drive=40), CHH=dict(t2=4.21), OHH=dict(t2=4.21))),
 ]
 
 
@@ -382,6 +423,8 @@ def main(path):
         L.append("    }},")
     L.append("};")
     L.append("#define DS_KIT_NAME_LIST " + ", ".join(f'"{k[0]}"' for k in KITS))
+    for i, k in enumerate(KITS):                  # the index of each, by name (DS_KIT_MD_EFM ...)
+        L.append(f"#define DS_KIT_{re.sub('[^A-Z0-9]', '_', k[0])} {i}u")
     L.append("#define DS_KIT_STYLE_LIST " + ", ".join(f'"{k[1]}"' for k in KITS))
     Path(path).write_text("\n".join(L) + "\n")
     print(f"drum kits: {len(KITS)} synthesised -> {path}")

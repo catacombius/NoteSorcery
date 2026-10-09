@@ -104,9 +104,9 @@ int main(void)
     host_tracks_init();
     song.g[G_DRREV] = 0;
     song.g[G_BPM] = 120;
-    check(DRUM_SYN == DRUM_PAIR + 1u && DRUM_KITS == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_SYN], "SYN1") &&
-          !strcmp(DRUM_KIT_NAMES[DRUM_KITS - 1u], "SYN4") && !strcmp(DRUM_KIT_STYLES[DRUM_SYN], "YOUR SYNTH"),
-          "the kit list ends with SYN1..SYN4, after USR3+4 (older projects keep their kit)");
+    check(DRUM_SYN == DRUM_PAIR + 1u && DRUM_CM808 == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_SYN], "SYN1") &&
+          !strcmp(DRUM_KIT_NAMES[DRUM_CM808 - 1u], "SYN4") && !strcmp(DRUM_KIT_STYLES[DRUM_SYN], "YOUR SYNTH"),
+          "the kit list: SYN1..SYN4 after USR3+4, then the circuit kits (NoteSorcery)");
     (void)dsu_kit(0);
     ok = 1;
     for (k = 0; k < DSU_N; k++)
@@ -126,11 +126,11 @@ int main(void)
         for (i = 0; i < NDRUM; i++)
             drums.v[i].active = 0;
         TDRUM->p[P_E0] = (int16_t)(DRUM_SYN + 2u);
-        drum_on(38, 100);
+        drum_on(TDRUM, 38, 100);
         for (i = 0; i < NDRUM; i++)
             act += drums.v[i].active && drums.synth[i] && drums.ds[i].d == &dsu.k[2].s[1] && drums.kit[i] == DRUM_SYN + 2u;
         TDRUM->p[P_E0] = (int16_t)(DRUM_SAMPLED + 5u);
-        drum_on(38, 100);
+        drum_on(TDRUM, 38, 100);
         for (i = 0; i < NDRUM; i++)
             act += drums.v[i].active && drums.synth[i] && drums.ds[i].d == &DS_KITS[5].s[1];
         check(act == 2u, "KIT = SYN3 plays its own sounds (RAM); the factory kits theirs");
@@ -203,7 +203,7 @@ int main(void)
             }
             dsu.k[t & 3u].crush = (uint8_t)(rng_s >> 40);
             TDRUM->p[P_E0] = (int16_t)(DRUM_SYN + (t & 3u));
-            drum_on(DS_LANE_NOTE[t % DS_LANES], 30u + t % 98u);
+            drum_on(TDRUM, DS_LANE_NOTE[t % DS_LANES], 30u + t % 98u);
             for (blk = 0; blk < 6u; blk++) {
                 mix_block(b, CTL);
                 for (i = 0; i < CTL * 2u; i++) {

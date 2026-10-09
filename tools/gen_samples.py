@@ -44,8 +44,9 @@ TR = 22050                                   # stored sample rate
 # set -> kind ("oneshot" decaying, "sus" looped sustain, "piano" its attack then a steady loop that the
 # envelope fades, "kit" one sample per key).
 # The other slots are user sets loaded from the web editor.
-CC0_SETS = [("PIANO", "piano"), ("BASS", "oneshot"), ("VIBES", "oneshot"), ("HORNS", "oneshot"),
-            ("STRGS", "oneshot"), ("FLUTE", "sus"), ("SCRCH", "oneshot"), ("KIT", "kit")]
+# NoteSorcery keeps the grand piano and the GM kit built in (the other sets went to make room for the 8 tracks
+# and the new engines); SoundFont presets and your own samples go into the user slots
+CC0_SETS = [("PIANO", "piano"), ("KIT", "kit")]
 MEASURED_TUNING = ()                         # sets recorded off A440 (measured near the named note)
 
 # the preset of each set: name, {SET (filled in), TUNE, BITS, LOOP (filled in), CUT, -, DRV, -}, env, mono,
@@ -64,7 +65,6 @@ SET_PRESETS = {
 EXTRA_PRESETS = [
     ("PIANO", "DUSTY PNO", [0, 0, 34, 0, 96, 0, 24, 0], (0, 98, 0, 52), 0, (0, 8, 10, 22), ()),
     ("PIANO", "LOFI KEYS", [0, 0, 45, 0, 78, 0, 30, 0], (0, 108, 0, 60), 0, (0, 30, 18, 34), ("P_LD_PIT", 1, "P_LRATE", 38)),
-    ("BASS", "DEEP BASS", [0, -12, 0, 0, 90, 0, 40, 0], (0, 127, 127, 30), 1, (0, 0, 0, 0), ()),
 ]
 
 KIT_BASE = 53                     # F3, the lowest FM-1 key
