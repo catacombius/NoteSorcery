@@ -63,16 +63,16 @@ The 11 black keys are F#3, G#3, A#3, C#4, D#4, F#4, G#4, A#4, C#5, D#5, F#5. The
 
 ## 1. Install and update
 
-NoteSorcery has no hosted installer yet. SLOOP's installer page installs SLOOP, not NoteSorcery.
+**From the browser (recommended).** Open **<https://catacombius.github.io/NoteSorcery/>** in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. Then unplug the FM-1 and plug it back in once, so the computer finds its USB audio again. The editor is linked from the same page. SLOOP's installer page installs SLOOP, not NoteSorcery.
 
-**From the browser (recommended).** Build the package (`./build.sh`, see [BUILDING.md](BUILDING.md)) or take the `.fwsc` of a release, then make a local copy of the installer and editor and serve it from `localhost` (Web MIDI needs a secure context):
+**Your own build, from the browser.** Build the package (`./build.sh`, see [BUILDING.md](BUILDING.md)), make a local copy of the installer and editor, and serve it from `localhost` (Web MIDI needs a secure context):
 
 ```
 python3 web/make_site.py build/felucca.fwsc dev notesorcery-site
 cd notesorcery-site && python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/webapp/installer/` in **Chrome or Edge**, connect the FM-1 by USB (a data cable, plugged straight in, no hub), press **INSTALL**, allow MIDI access, and wait for *Done*. The editor is at `http://localhost:8000/webapp/editor/`. The installer page still carries SLOOP's text; the package it installs is the one you gave `make_site.py`.
+Then open `http://localhost:8000/webapp/installer/` and install as above.
 
 **From the command line:** `pip3 install mido python-rtmidi`, then `python3 tools/fm1_install.py build/felucca.fwsc`.
 

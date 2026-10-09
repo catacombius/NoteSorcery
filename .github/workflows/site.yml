@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Build the firmware, run the host tests, and publish the browser installer and editor on GitHub Pages.
+# Pull requests build and test only; a push to main (or a manual run) also deploys the site.
+# One-time setup: Settings -> Pages -> Source: GitHub Actions.
+name: site
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NS_VERSION: "0.1"                          # the release on the site: identity FM-1_95XY, X.Y one digit each
+  SDK_TAG: AC79NN_SDK_V1.2.1_2023-12-13
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Python and valgrind
+        run: |
+          pip install Pillow
+          sudo apt-get update -q && sudo apt-get install -y -q valgrind
+      - name: Cache the JieLi toolchain
+        id: tc
+        uses: actions/cache@v4
+        with:
+          path: ~/.jieli
+          key: jieli-toolchain-${{ hashFiles('tools/get_toolchain.sh') }}
+      - name: Get the JieLi toolchain
+        if: steps.tc.outputs.cache-hit != 'true'
+        run: sh tools/get_toolchain.sh
+      - name: Cache the AC79 SDK files
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/fw-AC79_AIoT_SDK
+          key: ac79-sdk-${{ env.SDK_TAG }}
+      - name: Get the AC79 SDK files (uboot.boot, cfg_tool.bin, eq_cfg_hw.bin)
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          for i in 1 2 3; do
+            rm -rf ~/fw-AC79_AIoT_SDK
+            git clone --depth 1 --filter=blob:none --sparse --branch "$SDK_TAG" \
+                https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK &&
+            git -C ~/fw-AC79_AIoT_SDK sparse-checkout set --no-cone \
+                /cpu/wl82/tools/uboot.boot /cpu/wl82/tools/cfg_tool.bin /cpu/wl82/tools/cfg/eq_cfg_hw.bin && break
+            sleep $((i * 15))
+          done
+          test -f ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot
+      - name: Build
+        run: bash build.sh
+      - name: Host tests
+        run: bash tests/run_tests.sh
+      - name: Release build
+        run: bash build.sh --release "$NS_VERSION"
+      - name: Make the site
+        run: python3 web/make_site.py "build/notesorcery-$NS_VERSION.fwsc" "$NS_VERSION" _site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notesorcery-${{ env.NS_VERSION }}
+          path: build/notesorcery-${{ env.NS_VERSION }}.fwsc
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

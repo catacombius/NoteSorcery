@@ -5,7 +5,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SLOOP installer</title>
+<title>NoteSorcery installer</title>
 <style>
   :root { --bg: #000; --fg: #f2f2f2; --dim: #8a8a92; --tile: #16161a; --line: #2a2a30;
           --blue: #287cff; --green: #1ecc70; --yellow: #ffc618; --orange: #ff621a; --red: #ff2c34; }
@@ -15,8 +15,7 @@
          font: 15px/1.6 "Helvetica Neue", -apple-system, BlinkMacSystemFont, Arial, sans-serif; }
   main { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
   .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .logo svg { display: block; width: 220px; height: auto; }
-  .logo rect:first-child { fill: transparent; }
+  .logo { font-weight: 700; font-size: 26px; letter-spacing: .14em; line-height: 1; }
   .lang { font-size: 12px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none;
           border: 0; padding: 0; text-transform: lowercase; }
   .strip { display: flex; height: 4px; margin: 20px 0 24px; }
@@ -46,23 +45,24 @@
   button#stock-go { font: 600 14px/1 inherit; font-family: inherit; background: var(--tile); color: var(--fg); border: 1px solid var(--line);
                     padding: 12px 16px; cursor: pointer; }
   button#stock-go:disabled { color: var(--dim); cursor: default; }
-  @media (max-width: 420px) { .tiles { grid-template-columns: repeat(2, 1fr); } .logo svg { width: 170px; } }
+  @media (max-width: 420px) { .tiles { grid-template-columns: repeat(2, 1fr); } .logo { font-size: 21px; } }
 </style>
 </head>
 <body>
 <main>
-  <div class="top"><div class="logo"><!--LOGO--></div><button class="lang" id="lang"></button></div>
+  <div class="top"><div class="logo">NOTESORCERY</div><button class="lang" id="lang"></button></div>
   <div class="strip"><i></i><i></i><i></i><i></i></div>
   <!--STUDIO_GUIDE-->
   <!--BANNER-->
   <h1>Firmware for the M-VAVE FM-1</h1>
-  <p class="lead">A groovebox you play live: four tracks — three synths and a drum machine — 12 synth engines (with six-operator FM and DX7 patches), 153 sounds, 37 drum kits from 808 to techno, amapiano and ambient, your own samples and drum kits, 16 punch-in effects. House, techno, hip-hop, drum &amp; bass, synthwave, lo-fi, ambient: make what you want. No factory patterns, nothing to load: everything you hear, you play.</p>
+  <p class="lead">An OP-1-style groovebox for the FM-1: eight tracks; acid, FM, analog, wave and sample synths; 808, 909 and Machinedrum-style drums; a visual step sequencer, night mode, live sampling over USB and Ableton Live export.</p>
   <div class="tiles">
-    <div class="tile" style="--c: var(--blue)"><b>153</b><span>sounds, 12 engines, your samples</span></div>
-    <div class="tile" style="--c: var(--green)"><b>37</b><span>drum kits, 909 to afro, + your own</span></div>
-    <div class="tile" style="--c: var(--yellow)"><b>16</b><span>punch-in fx: hold fx + key</span></div>
-    <div class="tile" style="--c: var(--orange)"><b>rec</b><span>no click: the loop follows you</span></div>
+    <div class="tile" style="--c: var(--blue)"><b>8</b><span>tracks: 6 synths, 2 drum machines</span></div>
+    <div class="tile" style="--c: var(--green)"><b>808</b><span>909, 606 and machinedrum-style kits</span></div>
+    <div class="tile" style="--c: var(--yellow)"><b>.als</b><span>sketch here, finish in ableton live</span></div>
+    <div class="tile" style="--c: var(--orange)"><b>usb</b><span>sample live from your phone</span></div>
   </div>
+  <p class="small" data-t="fromSloop"></p>
   <p data-t="intro"></p>
   <p data-t="warn"></p>
   <p><button id="go" disabled data-t="install"></button></p>
@@ -86,11 +86,11 @@
     <p><button id="stock-go" disabled data-t="stockGo"></button></p>
     <p class="small" data-t="back"></p>
   </details>
-  <p class="small">SLOOP is based on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
+  <p class="small">NoteSorcery is based on <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">SLOOP</a> by isod89, which is based on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
     Hold OCT− alone while switching on for USB rescue.<br>
     Font: Terminus (Dimitar Toshkov Zhekov, SIL OFL 1.1). Samples: Versilian Studios VSCO-2 Community Edition and VCSL (CC0 1.0), and the Hügelton Sample Pack (© Hügelton Instruments, not CC0).<br>
-    M-VAVE and FM-1 are trademarks of their respective owners; SLOOP is not affiliated with them.<br>
-    <span data-t="license"></span> <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">github.com/hugelton/Felucca</a></p>
+    M-VAVE and FM-1 are trademarks of their respective owners; NoteSorcery is not affiliated with them.<br>
+    <span data-t="license"></span> <a href="https://github.com/catacombius/NoteSorcery" target="_blank" rel="noopener">github.com/catacombius/NoteSorcery</a></p>
 </main>
 <script type="module">
 /*LIB*/
@@ -103,7 +103,8 @@ const TEXT = {
     editor: "エディタ（インストール後、パソコンから音色やシーケンスを編集）",
     direct: "USB ケーブルはパソコンに直接つないでください。Probe や Transporter などの機材は不要です。",
     brick: "万一インストールに失敗して起動しなくなった場合は、復旧に Transporter が必要です:",
-    beta: "これはベータ版で、不安定な場合があります。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
+    fromSloop: "SLOOP から入れ替える場合: 先に SLOOP のエディタでバックアップを保存してください（Projects → Backup）。NoteSorcery は SLOOP のプロジェクトを読み込めません。",
+    beta: "まだ実機の FM-1 では試験されていないベータ版です。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
     back: "公式ファームウェアに戻すには、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）と公式ファームウェア（PC Firmware → FM-1 V15）が必要です。",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。", loadfail: "読み込めませんでした: ",
     start: "開始します", verify: "確認中", loader: "書き込みモードに切り替え中", write: "書き込み中",
@@ -122,12 +123,12 @@ const TEXT = {
     license: "GPL-3.0、無保証。ソース:",
     stockTitle: "公式ファームウェア（V15）に戻す",
     stockHelp: "M-VAVE のサイトから公式の FM-1 V15 をダウンロードし、中の FM-1.fwsc（変更していないもの）を選んでください。ファイルはこのブラウザの中で確認され、どこにも送られません。",
-    stockBackup: "公式ファームウェアは SLOOP の曲・プロジェクト・サンプルを開けません。先にエディタでバックアップを保存してください（Projects → Backup）。SLOOP を入れ直せば、エディタから復元できます。",
+    stockBackup: "公式ファームウェアは NoteSorcery の曲・プロジェクト・サンプルを開けません。先にエディタでバックアップを保存してください（Projects → Backup）。NoteSorcery を入れ直せば、エディタから復元できます。",
     stockEditor: "エディタを開いてバックアップする", stockSaved: "バックアップをパソコンに保存しました",
     stockFile: "公式の FM-1.fwsc", stockGo: "公式 V15 をインストール",
     stockValid: "公式 V15 を確認しました", stockBad: "公式 V15 ではありません: ",
-    stockConfirm: "FM-1 に公式 V15 をインストールします。SLOOP の曲は公式ファームウェアでは開けません。バックアップは保存しましたか？",
-    stockFinish: "FM-1 は SLOOP の書き込みモードです。先に「インストール」で SLOOP の書き込みを終えてから、公式 V15 に戻してください。",
+    stockConfirm: "FM-1 に公式 V15 をインストールします。NoteSorcery の曲は公式ファームウェアでは開けません。バックアップは保存しましたか？",
+    stockFinish: "FM-1 は NoteSorcery の書き込みモードです。先に「インストール」で NoteSorcery の書き込みを終えてから、公式 V15 に戻してください。",
     back: "M-VAVE のアップデーター M-UPGRADE（Downloads → PC Software）でも戻せます。FM-1 が見つからない場合は、MIDI を使う他のアプリとブラウザのタブを閉じてください。",
   },
   en: {
@@ -137,7 +138,8 @@ const TEXT = {
     editor: "Editor (after installing: edit sounds and sequences from the computer)",
     direct: "Connect the USB cable directly to the computer. No probe or Transporter is needed.",
     brick: "If an install fails and the FM-1 no longer starts, recovering it needs a Transporter:",
-    beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
+    fromSloop: "Coming from SLOOP? Save a backup in SLOOP's editor first (Projects → Backup): NoteSorcery does not read SLOOP's projects.",
+    beta: "This is a beta, not yet tested on a real FM-1, and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
     back: "To go back to the official firmware you need M-VAVE's official updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE), and the official firmware (PC Firmware → FM-1 V15).",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
     start: "Starting", verify: "Verifying", loader: "Switching to update mode", write: "Writing",
@@ -156,12 +158,12 @@ const TEXT = {
     license: "GPL-3.0, no warranty. Source:",
     stockTitle: "Return to the official firmware (V15)",
     stockHelp: "Download the official FM-1 V15 from M-VAVE and select the FM-1.fwsc inside it, unmodified. The file is checked in this browser; it is not sent anywhere.",
-    stockBackup: "The official firmware cannot open SLOOP's music, projects or samples. Save a backup with the editor first (Projects → Backup); reinstall SLOOP and restore it from the editor whenever you want them back.",
+    stockBackup: "The official firmware cannot open NoteSorcery's music, projects or samples. Save a backup with the editor first (Projects → Backup); reinstall NoteSorcery and restore it from the editor whenever you want them back.",
     stockEditor: "Open the editor to back up", stockSaved: "I saved a backup on this computer",
     stockFile: "The official FM-1.fwsc", stockGo: "Install the official V15",
     stockValid: "Official V15 verified", stockBad: "Not the official V15: ",
-    stockConfirm: "Install the official V15 on the FM-1? The official firmware cannot open SLOOP's music. Did you save a backup?",
-    stockFinish: "The FM-1 is in SLOOP's update mode. Press Install to finish the SLOOP update first, then return to the official V15.",
+    stockConfirm: "Install the official V15 on the FM-1? The official firmware cannot open NoteSorcery's music. Did you save a backup?",
+    stockFinish: "The FM-1 is in NoteSorcery's update mode. Press Install to finish the NoteSorcery update first, then return to the official V15.",
     back: "M-VAVE's own updater, M-UPGRADE (Downloads → PC Software), works too. If it does not find the FM-1, close every other app and browser tab that uses MIDI.",
   },
 };
@@ -203,7 +205,7 @@ window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault
       if (h !== meta.sha256) { sayK("badpkg"); log(`sha256 ${h}, expected ${meta.sha256}`); return; }
     }
     image = logicalImage(pkg);
-    say(`SLOOP ${meta.version}`);
+    say(`NoteSorcery ${meta.version}`);
     lockAll(writing);
   } catch (e) { sayK("loadfail", e.message); }
 })();
@@ -266,7 +268,7 @@ $("stock-go").addEventListener("click", async () => {
     const ota = await up.find((id) => /^ota-/i.test(id.model));
     if (ota) {
       ota.link.close();
-      if (OUR_LOADER(ota.id)) sayK("stockFinish");    /* SLOOP's loader: finish SLOOP first (Install) */
+      if (OUR_LOADER(ota.id)) sayK("stockFinish");    /* our loader (SLOOP's): finish that install first */
       else sayK((await up.resume(stock.image, step, { product: stock.product })) ? "done" : "stopped");
     } else {
       await up.install(stock.image, stock.product, step);

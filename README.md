@@ -11,6 +11,13 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 > your own risk and back up first: NoteSorcery does
 > not read SLOOP's projects, and its sample slots are smaller (see [Differences from SLOOP](#differences-from-sloop)).
 
+## Install
+
+Open **<https://catacombius.github.io/NoteSorcery/>** in **Chrome or Edge** on a computer, plug the FM-1 in by USB (a data
+cable, no hub), press **INSTALL**, allow MIDI access and wait for *Done*. The editor (Ableton export, samples,
+SoundFonts, backups) is linked from the same page. Coming from SLOOP, save a backup in SLOOP's editor first.
+Other ways (a local copy of the page, the command line) and rescue: [GUIDE.md](GUIDE.md#1-install-and-update).
+
 ## What it is
 
 - **Eight tracks:** six synth tracks (1–6) and two drum machines (7, 8). The synth tracks share 8 voices
