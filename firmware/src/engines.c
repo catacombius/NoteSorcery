@@ -20,9 +20,12 @@ static inline int32_t soft_knee(int32_t y, int32_t k)   /* linear up to k, then 
 #include "eng_sample.c"
 #include "eng_trio.c"
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0); SLOOP 2.4 */
+#include "eng_acid.c"           /* ACID: a TB-303 (X0X's Open303 port); NoteSorcery */
+#include "eng_wave.c"           /* WAVE: single-cycle waves (built in and your own); NoteSorcery */
 
 typedef union {
     fm6_note_t fm6[FM6_POLY];
+    bass303_t acid;
 } eng_arena_t;
 static eng_arena_t eng_arena[NPART] __attribute__((section(".pool")));
 static uint8_t eng_arena_own[NPART];            /* the engine + 1 whose state is in it, 0 = none */
@@ -51,7 +54,7 @@ static void *eng_arena_of(const track_t *t, uint32_t eng)
 #include "eng_slice.c"
 #endif
 
-static const engine_t *const ENGINES[NENGINES] = {&ENG_ANALOG, &ENG_TRIO, &ENG_FM6, &ENG_SAMPLE,
+static const engine_t *const ENGINES[NENGINES] = {&ENG_ANALOG, &ENG_TRIO, &ENG_FM6, &ENG_SAMPLE, &ENG_ACID, &ENG_WAVE,
 #if FELUCCA_SLICE
                                                     &ENG_SLICE,
 #endif

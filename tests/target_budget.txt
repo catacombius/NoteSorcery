@@ -10,4 +10,6 @@ drums_mix 3534
 fm6_op_run 72
 fm6_op_fb 26
 fm6_render 363
+wave_render 180
+bass303_render 8524
 fm1_alnk0_irq 268

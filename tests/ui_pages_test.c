@@ -544,6 +544,8 @@ int main(int argc, char **argv)
 
     {   /* menu NOTES (PR #11 by @renebohne): sounding synth voices light their keys */
         song.sel = 0; go_home(); ui.force = 1; frame();
+        set_engine_of(&trk[0], ENGI_ANALOG);        /* (NoteSorcery: track 1 starts on ACID, whose 303 ends a voice it never gated) */
+        frame();                                    /* (the switch and its note release, before the voice below) */
         trk[0].p[P_CHORD] = 0; trk[0].p[P_QUANT] = 0; trk[0].p[P_ROOT] = 0; trk[0].p[P_TRANS] = 0;
         song.octave = 0;
         lights_notes = 0;

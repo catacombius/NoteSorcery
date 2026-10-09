@@ -411,7 +411,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
     if (!v)
         return;
-    if (pg->scope == SC_GLOBAL && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
+    if (pg->scope == SC_GLOBAL && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ ||
+                                   id == G_GEN) &&
         ui.arm != id) {                                   /* one detent arms, a second one within ~1.5 s acts */
         *vp = 0;
         ui.arm = (uint8_t)id;
@@ -438,6 +439,19 @@ static void edit_param(uint32_t slot, int32_t steps)
         track_defaults_steps(TSEL);
         fm1_irq_on();
         ui_message("PATTERN CLEARED");
+        break;
+    case G_GEN:                                           /* NoteSorcery: a 303 line, a new one each time */
+        *vp = 0;
+        if (is_drum(TSEL)) {
+            ui_message("A SYNTH TRACK");
+            break;
+        }
+        undo_mark(TSEL, (undo_sess += 4u) | 3u);
+        fm1_irq_off();
+        tb3po_fill(TSEL, fm1_ms ^ ((uint32_t)song.sel << 24));
+        fm1_irq_on();
+        ui_message("303 LINE");
+        sync_reload = 1;
         break;
     case G_INITSND:
         *vp = 0;

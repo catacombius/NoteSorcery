@@ -248,8 +248,8 @@ static void go_home(void)
  * writes the sequencer: every pattern is the one the player records or enters. */
 
 /* the parts' sounds at power-on (engine, preset): bass, pad, lead */
-/* the power-on sounds of tracks 1..6: 808 BOOM, TINE EP, SYNC LEAD, WARM PAD, GLASS BELL, GRAND PNO */
-static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ANALOG, 0}, {ENGI_FM6, 0}, {ENGI_TRIO, 6}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1},
+/* the power-on sounds of tracks 1..6: ACID CLASS, TINE EP, SYNC LEAD, WARM PAD, GLASS BELL, GRAND PNO */
+static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ACID, 0}, {ENGI_FM6, 0}, {ENGI_TRIO, 6}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1},
                                           {ENGI_SAMPLE, 0}};
 static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? TRK_DEF[i][0] : 0u; }
 
@@ -350,6 +350,13 @@ static void select_engine(uint32_t e)
 enum { BK_BASS, BK_KEYS, BK_ORGAN, BK_PAD, BK_LEAD, BK_PLUCK, BK_STAB, BK_FX };
 static const char *const BANK_KIND[] = {"BASS", "KEYS", "ORGN", "PAD", "LEAD", "PLCK", "STAB", "FX"};
 static const struct { uint8_t kind, e; const char *name; } BANK[] = {
+    {BK_BASS, ENGI_ACID, "ACID CLASS"}, {BK_BASS, ENGI_ACID, "ACID SQUARE"}, {BK_BASS, ENGI_ACID, "SQUELCH"},
+    {BK_BASS, ENGI_ACID, "ACID RAT"}, {BK_BASS, ENGI_ACID, "SOFT 303"}, {BK_BASS, ENGI_ACID, "DEEP 303"},
+    {BK_LEAD, ENGI_ACID, "SCREAMER"}, {BK_BASS, ENGI_ACID, "RUBBER 303"},
+    {BK_PAD, ENGI_WAVE, "VOX PAD"}, {BK_PAD, ENGI_WAVE, "CHOIR WAVE"}, {BK_KEYS, ENGI_WAVE, "GLASS KEYS"},
+    {BK_LEAD, ENGI_WAVE, "DIGI LEAD"}, {BK_LEAD, ENGI_WAVE, "SYNC LEAD W"}, {BK_PLUCK, ENGI_WAVE, "FM BELL"},
+    {BK_PAD, ENGI_WAVE, "HOLLOW PAD"}, {BK_LEAD, ENGI_WAVE, "REED LEAD"}, {BK_PLUCK, ENGI_WAVE, "CLAVI PLUCK"},
+    {BK_PLUCK, ENGI_WAVE, "METAL PLUCK"}, {BK_BASS, ENGI_WAVE, "WAVE BASS"}, {BK_ORGAN, ENGI_WAVE, "ORGAN WAVE"},
     {BK_BASS, ENGI_ANALOG, "808 BOOM"}, {BK_BASS, ENGI_ANALOG, "808 DIRTY"}, {BK_BASS, ENGI_ANALOG, "808 SLIDE"},
     {BK_BASS, ENGI_ANALOG, "SUB BASS"}, {BK_BASS, ENGI_ANALOG, "PLUGG BASS"}, {BK_BASS, ENGI_ANALOG, "REESE"},
     {BK_BASS, ENGI_ANALOG, "WOBBLE"}, {BK_BASS, ENGI_ANALOG, "ACID 303"}, {BK_BASS, ENGI_TRIO, "FAT BASS"},

@@ -779,6 +779,8 @@ static void steps_clear(track_t *t)           /* an empty pattern (synth: REST s
     memset(t->fill, 0, sizeof t->fill);
 }
 
+#include "gen_tb3po.c"                          /* TOOLS > GEN: a 303 line (NoteSorcery, after X0X's TB-3PO) */
+
 /* tempo x 10 of a loop of T blocks holding n bars of 4/4 */
 static uint32_t ft_bpm10(uint32_t T, uint32_t n)
 {

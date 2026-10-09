@@ -350,6 +350,8 @@ static void persist_boot(void)                    /* before settings_init / pane
         uint32_t k;
         for (k = 0; k < SMP_USER_SLOTS; k++)
             smp_user_scan(k);
+        for (k = 0; k < WT_USER; k++)
+            wt_user_scan(k);                       /* NoteSorcery: your single-cycle waves (eng_wave.c) */
     }
     {
         int n = st_load(OBJ_SETTINGS, &p, sizeof p);

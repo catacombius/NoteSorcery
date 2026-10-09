@@ -25,7 +25,9 @@ enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #define ENGI_TRIO 1u
 #define ENGI_FM6 2u              /* the FM6 engine's index (eng_fm6.c) */
 #define ENGI_SAMPLE 3u
-#define NENGINES_CORE 4u         /* the engines every build has */
+#define ENGI_ACID 4u             /* NoteSorcery: a TB-303 (eng_acid.c, X0X's Open303) */
+#define ENGI_WAVE 5u             /* NoteSorcery: single-cycle waves (eng_wave.c) */
+#define NENGINES_CORE 6u         /* the engines every build has */
 #define NENGINES (NENGINES_CORE + FELUCCA_SLICE)
 #define ENGI_SLICE NENGINES_CORE /* with FELUCCA_SLICE: after the others */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
@@ -83,7 +85,8 @@ enum {                          /* global parameters */
     G_DUST, G_DUCK, G_FILT,     /* the master bus: lo-fi / vinyl, the kick ducking the parts, the DJ filter (fx.c) */
     G_ROLL,                     /* note repeat rate (ARP + key, seq.c) */
     G_NEWPRJ,                   /* TOOLS > NEW: a new project (GO) */
-    G_DRDLY,                    /* SLOOP 2.5: the drums' delay send (GLO > DRUMS; a project keeps it in its own byte) */
+    G_DRDLY,                    /* SLOOP 2.5: the drums' delay send (GLO > DRUMS) */
+    G_GEN,                      /* NoteSorcery: TOOLS > GEN, a 303 line on the selected synth track (GO) */
     G_COUNT
 };
 
