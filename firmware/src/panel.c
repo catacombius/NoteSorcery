@@ -86,13 +86,40 @@ static uint8_t lights_min;                     /* GLO > SYSTEM > IN (G_ROUTE): 1
 static const uint16_t LIGHTS_NS[LIGHTS_N] = {0u, 500u, 1000u, 2000u};   /* the backlight pulse a frame (ns): a lit
                                                 * LED ~95 us, the glow (landmarks) 4 us (fm1_input.h) */
 static uint8_t usb_serial;                      /* menu USB SERIAL: 1 = the serial console presented (usb.c) */
+/* NoteSorcery: menu SCREEN > NIGHT. On: every button lit low, the keys too, the sounding notes, and the screen at its
+ * dimmest; off: the LIGHTS, KEYS, NOTES and BRIGHT from before (kept in the settings' lights word) */
+static uint8_t night_on;
+static uint8_t night_prev[4];                   /* lights_lvl, lights_keys, lights_notes, scr_bright before it */
+static void night_set(uint32_t on)
+{
+    on = on != 0u;
+    if (on == night_on)
+        return;
+    if (on) {
+        night_prev[0] = lights_lvl, night_prev[1] = lights_keys, night_prev[2] = lights_notes, night_prev[3] = scr_bright;
+        lights_lvl = LIGHTS_LOW;
+        lights_keys = KEYS_ALL;
+        lights_notes = 1;
+        scr_bright = NBRIGHT - 1u;
+    } else {
+        lights_lvl = (uint8_t)(night_prev[0] % LIGHTS_N);
+        lights_keys = (uint8_t)(night_prev[1] % KEYS_N);
+        lights_notes = (uint8_t)(night_prev[2] & 1u);
+        scr_bright = (uint8_t)(night_prev[3] % NBRIGHT);
+    }
+    night_on = (uint8_t)on;
+    palette_set(settings.palette);
+}
 static uint8_t vis_style;                       /* the visualiser's style, 0..11 (ui_vis.c) */
 static uint32_t lights_word(void)
 {
     return (uint32_t)lights_lvl | (uint32_t)lights_keys << 4 | (uint32_t)(lights_notes != 0u) << 8 |
            (uint32_t)(rec_tempo != 0u) << 9 | (uint32_t)(rec_count != 0u) << 10 | (uint32_t)(usb_full != 0u) << 11 |
            (uint32_t)(lights_sync % 3u) << 12 | (uint32_t)(lights_mout & 1u) << 14 | (uint32_t)((lights_mout >> 1) & 1u) << 21 | (uint32_t)(lights_min != 0u) << 15 |
-           (uint32_t)(usb_serial != 0u) << 16 | (uint32_t)(vis_style % 12u) << 17;
+           (uint32_t)(usb_serial != 0u) << 16 | (uint32_t)(vis_style % 12u) << 17 |
+           (uint32_t)(scr_bright % NBRIGHT) << 22 | (uint32_t)(night_on != 0u) << 24 |   /* NoteSorcery: BRIGHT, NIGHT */
+           (uint32_t)(night_prev[0] & 3u) << 25 | (uint32_t)(night_prev[1] & 3u) << 27 |  /* .. and what NIGHT left */
+           (uint32_t)(night_prev[2] & 1u) << 29 | (uint32_t)(night_prev[3] & 3u) << 30;
 }
 static void lights_from_word(uint32_t w)
 {
@@ -106,6 +133,10 @@ static void lights_from_word(uint32_t w)
     lights_mout = (uint8_t)(((w >> 14) & 1u) | ((w >> 20) & 2u));   /* GLO > SYSTEM > MIDI (seq.c); bit 21: CLK */
     lights_min = (uint8_t)((w >> 15) & 1u);     /* GLO > SYSTEM > IN (seq.c) */
     usb_serial = (uint8_t)((w >> 16) & 1u);
+    scr_bright = (uint8_t)((w >> 22) & 3u);         /* NoteSorcery: menu SCREEN > BRIGHT, NIGHT (gfx.c) */
+    night_on = (uint8_t)((w >> 24) & 1u);
+    night_prev[0] = (uint8_t)((w >> 25) & 3u), night_prev[1] = (uint8_t)((w >> 27) & 3u);
+    night_prev[2] = (uint8_t)((w >> 29) & 1u), night_prev[3] = (uint8_t)((w >> 30) & 3u);
     vis_style = (uint8_t)(((w >> 17) & 15u) % 12u);   /* the visualiser (ui_vis.c); 0 in 2.3 = OSCILLOSCOPE */     /* menu USB SERIAL (usb.c usb_cdc_on, at the next start); 0 in 2.3 = OFF */
 }
 

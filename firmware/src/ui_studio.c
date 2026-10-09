@@ -16,17 +16,33 @@ static int on_drum_page(void) { return !ui.home && cur_page()->scope == SC_DRUM;
 #define TE_G3 RGB(118, 118, 126)         /* labels */
 #define TE_G4 RGB(196, 196, 204)         /* secondary text */
 #define TE_RED RGB(255, 44, 52)          /* recording, erasing */
-static const uint16_t TE_COL[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
-static const uint16_t TE_MID[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
-static const uint16_t TE_DIM[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
+/* (the colours as designed; TE_* / TRK_* are them at the screen's BRIGHT: studio_colors) */
+static const uint16_t TE_COL0[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
+static const uint16_t TE_MID0[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
+static const uint16_t TE_DIM0[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
 /* NoteSorcery: the eight tracks' colours (the knobs keep TE_COL): blue, green, yellow, violet, cyan, pink for the
  * synth tracks, orange and lime for the drum tracks; MID about 2/3, DIM about 1/3 of each */
-static const uint16_t TRK_COL[NTRK] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(168, 96, 255),
-                                       RGB(24, 200, 220), RGB(255, 90, 170), RGB(255, 98, 26), RGB(170, 220, 30)};
-static const uint16_t TRK_MID[NTRK] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(112, 64, 170),
-                                       RGB(16, 134, 146), RGB(170, 60, 114), RGB(170, 66, 18), RGB(114, 146, 20)};
-static const uint16_t TRK_DIM[NTRK] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(56, 32, 86),
-                                       RGB(8, 66, 74), RGB(86, 30, 56), RGB(86, 32, 8), RGB(56, 74, 10)};
+static const uint16_t TRK_COL0[NTRK] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(168, 96, 255),
+                                        RGB(24, 200, 220), RGB(255, 90, 170), RGB(255, 98, 26), RGB(170, 220, 30)};
+static const uint16_t TRK_MID0[NTRK] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(112, 64, 170),
+                                        RGB(16, 134, 146), RGB(170, 60, 114), RGB(170, 66, 18), RGB(114, 146, 20)};
+static const uint16_t TRK_DIM0[NTRK] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(56, 32, 86),
+                                        RGB(8, 66, 74), RGB(86, 30, 56), RGB(86, 32, 8), RGB(56, 74, 10)};
+static uint16_t TE_COL[4], TE_MID[4], TE_DIM[4], TRK_COL[NTRK], TRK_MID[NTRK], TRK_DIM[NTRK];
+static void studio_colors(uint32_t q8)                   /* (gfx.c palette_set) */
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        TE_COL[k] = rgb_scale(TE_COL0[k], q8);
+        TE_MID[k] = rgb_scale(TE_MID0[k], q8);
+        TE_DIM[k] = rgb_scale(TE_DIM0[k], q8);
+    }
+    for (k = 0; k < NTRK; k++) {
+        TRK_COL[k] = rgb_scale(TRK_COL0[k], q8);
+        TRK_MID[k] = rgb_scale(TRK_MID0[k], q8);
+        TRK_DIM[k] = rgb_scale(TRK_DIM0[k], q8);
+    }
+}
 #define TE_DRUM (TRK_COL[(uint32_t)(TDRUM - trk) % NTRK])
 
 static void te_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c)     /* filled circle */

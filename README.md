@@ -4,9 +4,10 @@
 Free and open source (GPL-3.0-only). Built on [SLOOP](https://github.com/isod89/sloop-fm1) by isod89,
 which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita / Hügelton Instruments.
 
-> **Status: in development (0.1).** Milestones 1, 2, 4, 6 and 7 are done: eight tracks, the new project format,
-> the ACID / WAVE engines, the circuit and Machinedrum-style drum kits, MIDI clock out and Song Position, Ableton
-> export from the browser, and the FieldTape / NoteMove integration. The rest of the roadmap is below. Install at your own risk and back up first: NoteSorcery does
+> **Status: in development (0.1).** Milestones 1–4, 6 and 7 are done: eight tracks, the new project format, the
+> ACID / WAVE engines, the circuit and Machinedrum-style drum kits, the visual sequencer, themes and night mode,
+> MIDI clock out and Song Position, Ableton export from the browser, and the FieldTape / NoteMove integration.
+> The rest of the roadmap is below. Install at your own risk and back up first: NoteSorcery does
 > not read SLOOP's projects, and its sample slots are smaller (see [Differences from SLOOP](#differences-from-sloop)).
 
 ## What it is
@@ -14,6 +15,14 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 - **Eight tracks:** six synth tracks (1–6) and two drum machines (7, 8). The synth tracks share 8 voices
   (FM6 at most 6 on one track). Each drum track has its own kit, voices, pattern, level, pan, filter and MIDI
   channel.
+- **A visual sequencer:** press SEQ twice for PATTERN. It shows every track's 16 steps of the page at once,
+  each in its track colour, with each track's playhead (tracks of other lengths run on their own), muted tracks
+  dimmed and the selected one marked.
+- **Themes, brightness and night mode** (hold HOME → SCREEN):
+  - **COLOR:** the SLOOP colours plus OP-1, PAPER (dark on light) and CONTRAST.
+  - **BRIGHT:** 100 / 70 / 45 / 25 %. The screen's backlight is on/off only, so every colour is scaled.
+  - **NIGHT:** every button and key lights up low, the sounding notes light their keys and the screen dims.
+    Turn it off and the lights come back as they were.
 - **A step sequencer on the keys:** hold SEQ and the 16 white keys are the 16 steps of the page (black keys
   1–4 pick pages 1–4, 64 steps a track). There are also parameter locks, nudges, ratchets, chance by fill,
   chords, song mode and quick chains (from SLOOP).
@@ -45,7 +54,7 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 |---|---|---|
 | 1 | Eight tracks (6 synth + 2 drums), new project format (NSP1), legacy engines removed | **done** |
 | 2 | ACID (Open303 + TB-3PO), WAVE (single-cycle), circuit-modelled 808 / 909, Machinedrum-style synth drums | **done** |
-| 3 | 8 × 16 visual sequencer screen, OP-1-style screens, themes (colours, dark / light, brightness), night mode | planned |
+| 3 | 8 × 16 visual sequencer screen, OP-1-style screens, themes (colours, dark / light, brightness), night mode | **done** |
 | 4 | MIDI clock **out** and Song Position Pointer for Ableton Live and other FM-1s; per-track MIDI out; NSX SysEx protocol | **done** |
 | 5 | Live sampling: the FM-1 as a USB audio output (record what a phone or computer plays), sample and SoundFont upload | planned |
 | 6 | Ableton Live `.als` and `.mid` export from the browser editor, with no app needed | **done** |

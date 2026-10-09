@@ -224,25 +224,44 @@ static void graph_lfo(const track_t *t, uint16_t c)
     cv_line(0, 50, 239, 50, C_LINE);
 }
 
-static void graph_steps(const track_t *t, uint16_t c)
+/* NoteSorcery: PATTERN page: the visual sequencer, every track's steps at once (as a Digitakt or Move shows them),
+ * 16 at a time: the page of the selected track's playhead (stopped: of the cursor), page dots under it. A row a
+ * track in its colour: a step that plays filled, a held one (TIE) a bar, an empty one a dot, past the track's LEN
+ * nothing; the selected track's mark white, a muted or soloed-away track dim; each track's own playhead framed
+ * (tracks of other lengths and DIVs run on their own). */
+static uint32_t grid_bank(void)
 {
-    uint32_t i, len = (uint32_t)t->p[P_SLEN];
-    for (i = 0; i < NSTEP; i++) {                    /* 4 rows of 16 thin bars */
-        int32_t x = 6 + (int32_t)(i % 16u) * 14 + (int32_t)(i % 16u) / 4 * 4, y = 6 + (int32_t)(i / 16u) * 24;
-        const step_t *st = &t->step[i];
-        if (i >= len)
-            continue;
-        if (step_on(st))
-            cv_rect(x, y, 1, 14, c);
-        else if (st->time == ST_TIE)
-            cv_rect(x, y + 6, 1, 8, C_DIM);
-        else
-            cv_rect(x, y + 13, 1, 1, C_DIM);
-        if (st->flags & SF_ACCENT)
-            cv_rect(x - 1, y - 2, 3, 1, c);
-        if ((song.playing && i == t->seq_idx) || i == ui.cursor)
-            cv_rect(x - 1, y + 16, 3, 3, C_WHITE);
+    const track_t *t = TSEL;
+    return (song.playing ? t->seq_idx : ui.cursor) / 16u % (NSTEP / 16u);
+}
+static void graph_grid(void)
+{
+    uint32_t r, i, bank = grid_bank();
+    for (r = 0; r < NTRK; r++) {
+        const track_t *t = &trk[r];
+        int32_t y = 1 + (int32_t)r * 12;
+        uint32_t len = trk_len(t), muted = t->p[P_MUTE] || (song.solo && !((song.solo >> r) & 1u));
+        uint16_t on = muted ? TRK_DIM[r] : TRK_COL[r];
+        cv_rect(2, y, 8, 10, r == song.sel ? C_WHITE : on);
+        for (i = 0; i < 16u; i++) {
+            uint32_t si = bank * 16u + i;
+            int32_t x = 14 + (int32_t)i * 13 + (int32_t)(i / 4u) * 3;
+            if (si >= len)
+                continue;
+            if (trk_step_on(t, si))
+                cv_rect(x, y, 11, 10, on);
+            else if (!is_drum(t) && t->step[si].time == ST_TIE)
+                cv_rect(x - 2, y + 4, 15, 2, muted ? C_DIM : TRK_MID[r]);
+            else
+                cv_rect(x + 4, y + 4, 3, 2, C_DIM);
+            if (song.playing && t->seq_idx == si) {
+                cv_rect(x - 1, y - 1, 13, 1, C_WHITE);
+                cv_rect(x - 1, y + 10, 13, 1, C_WHITE);
+            }
+        }
     }
+    for (i = 0; i < NSTEP / 16u; i++)                /* the page: which 16 of the 64 */
+        cv_rect(14 + (int32_t)i * 8, 98, 6, 2, i == bank ? C_WHITE : C_DIM);
 }
 /* STEP page: the cursor's 16-step bank as a little piano roll */
 static void graph_roll(const track_t *t, uint16_t c)
@@ -379,7 +398,12 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_SLOTS)                       /* (a checksum over each slot) */
         for (i = 0; i < 4u; i++)
             h ^= (uint32_t)project_used(i) << (20u + i);
-    if (pg->graph == GR_STEPS || pg->graph == GR_ROLL) {
+    if (pg->graph == GR_STEPS) {                     /* (the grid: every track) */
+        for (i = 0; i < NTRK; i++)
+            h ^= (steps_hash(&trk[i]) + (song.playing ? trk[i].seq_idx + 1u : 0u) * 31u + trk[i].p[P_MUTE] * 7u) * (i + 1u);
+        h ^= song.solo * 2654435761u + grid_bank() * 104729u + song.sel * 7919u;
+    }
+    if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
         if (pg->graph == GR_ROLL && ph / 16u != ui.bank)
             ph = 0xFFFFu;                            /* the roll shows the cursor's bank only */
@@ -693,7 +717,7 @@ static void draw_graph(void)
             graph_lfo(t, c);
             break;
         case GR_STEPS:
-            graph_steps(t, c);
+            graph_grid();
             break;
         case GR_ROLL:
             graph_roll(t, c);

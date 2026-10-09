@@ -37,6 +37,7 @@ static int32_t panel_enc(uint32_t i) {int32_t s=enc[i];enc[i]=0;return s;}
 static void song_backup(void) {}
 static void song_restore(void) {}
 #include "../firmware/src/ui_song.c"
+static void studio_colors(uint32_t q8) { (void)q8; }   /* (ui_studio.c: not in this test) */
 static void press(uint32_t b) {song_screen_input(1u<<panel.btn[b],0);}
 
 int main(int argc,char **argv)

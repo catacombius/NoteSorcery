@@ -152,6 +152,41 @@ int main(int argc, char **argv)
     open_family(FAM_EDIT); ui.force = 1; frame(); ppm("page-edit");
     open_family(FAM_FX); ui.force = 1; frame(); ppm("page-fx");
     open_family(FAM_SEQ); ui.force = 1; frame(); ppm("page-step");
+    {   /* NoteSorcery: PATTERN, the visual sequencer: every track's 16 steps of the page, the playheads */
+        static step_t keep_s[NTRK][NSTEP];
+        uint32_t k, j;
+        uint16_t hi0;
+        for (k = 0; k < NTRK; k++) memcpy(keep_s[k], trk[k].step, sizeof keep_s[k]);
+        for (k = 0; k < NPART; k++)
+            for (j = 0; j < 16u; j += 1u + k % 3u) {
+                uint8_t n[1] = {(uint8_t)(48 + k * 3 + j)};
+                put_step(&trk[k], j, 1, n, ST_NOTE, 0);
+            }
+        for (j = 0; j < 16u; j++) {
+            memset(&trk[TRK_DRUM].dstep[j], 0, sizeof trk[TRK_DRUM].dstep[j]);
+            if (j % 4u == 0u) dstep_set(&trk[TRK_DRUM].dstep[j], 0, LV_NORM, 0);
+            if (j % 2u == 1u) dstep_set(&trk[TRK_DRUM + 1].dstep[j], 4, LV_NORM, 0);
+        }
+        trk[3].p[P_MUTE] = 1;
+        open_family(FAM_SEQ); ui.force = 1; frame();
+        check(cur_page()->graph == GR_STEPS && str_eq(cur_page()->title, "PATTERN"), "SEQ again: PATTERN, the grid of all tracks");
+        ppm("page-pattern");
+        transport_req = 1; for (k = 0; k < 20u; k++) frame();
+        ui.force = 1; frame(); ppm("page-pattern-playing");
+        check(song.playing && trk[0].seq_idx > 0u, "PATTERN while playing: the playheads move (redrawn by signature)");
+        transport_req = 2; frame();
+        k = settings.palette;                          /* the PAPER theme: dark on light, the whole screen */
+        hi0 = C_HI;
+        for (j = 0; j < NPALETTES && !str_eq(PALETTES[j].name, "PAPER"); j++) ;
+        settings.palette = j; palette_set(j); ui.force = 1; frame(); ppm("page-pattern-paper");
+        check(j < NPALETTES && ((C_BLACK >> 11) & 31u) > 24u && ((C_WHITE >> 11) & 31u) < 4u &&
+              ((screen[239 * 240 + 120] >> 3) & 31u) > 24u, "theme PAPER: a light background, dark text, on screen");
+        settings.palette = k; palette_set(k); ui.force = 1; frame();
+        check(C_HI == hi0, "... and back");
+        trk[3].p[P_MUTE] = 0;
+        for (k = 0; k < NTRK; k++) memcpy(trk[k].step, keep_s[k], sizeof keep_s[k]);
+        open_family(FAM_SEQ); ui.force = 1; frame();
+    }
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-global");
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-master");
     open_family(FAM_SCL); ui.force = 1; frame(); ppm("page-scale");
@@ -680,6 +715,26 @@ int main(int argc, char **argv)
         uint32_t sec;
         ui.menu = 1; ui.menu_sel = 0; ui.force = 1; frame(); ppm("menu-screen");
         check(mi_sec(ui.menu_sel) == MS_SCREEN, "menu: opens on SCREEN (COLOR, ZOOM)");
+        {   /* NoteSorcery: SCREEN's rows 3 and 4: BRIGHT (KNOB 3), NIGHT (KNOB 4) */
+            uint32_t l0 = lights_lvl, k0 = lights_keys, n0 = lights_notes, w;
+            uint16_t hi0 = C_HI, t0 = TRK_COL[0];
+            encs[panel.enc[EN_K3]] = -1; frame();
+            check(scr_bright == 1u && ui.menu_sel == MI_BRIGHT && C_HI < hi0 && TRK_COL[0] != t0,
+                  "menu SCREEN: KNOB 3 left: BRIGHT 70 %, every colour dimmer (the tracks' too)");
+            encs[panel.enc[EN_K3]] = 1; frame();
+            check(scr_bright == 0u && C_HI == hi0 && TRK_COL[0] == t0, "... right: back to 100 %");
+            encs[panel.enc[EN_K4]] = 1; frame(); ui.force = 1; frame(); ppm("menu-night");
+            check(night_on && ui.menu_sel == MI_NIGHT && lights_lvl == LIGHTS_LOW && lights_keys == KEYS_ALL && lights_notes &&
+                  scr_bright == NBRIGHT - 1u, "menu SCREEN: KNOB 4 right: NIGHT, every button and key lit low, the screen dimmest");
+            w = lights_word();
+            lights_from_word(0);
+            lights_from_word(w);
+            check(night_on && scr_bright == NBRIGHT - 1u, "NIGHT is kept with the settings (the lights word)");
+            encs[panel.enc[EN_K4]] = -1; frame();
+            check(!night_on && lights_lvl == l0 && lights_keys == k0 && lights_notes == n0 && scr_bright == 0u && C_HI == hi0,
+                  "NIGHT off: the lights and brightness from before");
+            ui.menu_sel = 0; ui.force = 1; frame();
+        }
         encs[panel.enc[EN_SELECT]] = 1; frame();
         check(mi_sec(ui.menu_sel) == MS_LIGHTS && ui.menu_sel == MI_LIGHTS, "menu: SELECT right: LIGHTS, the cursor on its first row");
         encs[panel.enc[EN_K2]] = 1; frame(); encs[panel.enc[EN_K2]] = 1; frame();
