@@ -179,8 +179,8 @@ static int tracks_demo(const char *dir, const char *name, uint32_t solo)
     host_tracks_init();
     song.g[G_BPM] = 120;
     host_preset(t1, 0, 4);
-    host_preset(t2, 1, 5);
-    host_preset(t3, 3, 0);
+    host_preset(t2, ENGI_FM6, 4);                  /* SOFT PAD */
+    host_preset(t3, ENGI_TRIO, 6);                 /* SYNC LEAD */
     for (i = 0; i < 16u; i++) {
         uint8_t n = ACID[i];
         put_step(t1, i, n ? 1u : 0u, &n, n ? ST_NOTE : ST_REST, ACIDF[i]);
@@ -448,7 +448,7 @@ static int xfade_test(const char *dir)
     /* switches: (a) in a release tail, (b) twice with a chord held, (c) with a note right after it */
     const uint32_t sw[4] = {11u * B, 23u * B, 29u * B + 7u * CTL, 33u * B};
     const uint32_t on[3] = {B, 15u * B, 25u * B}, sine[3] = {14u * B, 24u * B, 32u * B};
-    const uint8_t to[4] = {1, 2, 3, 4};
+    const uint8_t to[4] = {ENGI_TRIO, ENGI_FM6, ENGI_SAMPLE, ENGI_TRIO};
     char path[512];
     FILE *w;
     int32_t *L = calloc(frames, sizeof *L);
@@ -737,7 +737,7 @@ static int tracks_test(const char *dir)
             fail++;
     }
     printf("tracks: WAVs in %s: %s (mix), %s, %s, %s, %s, steal.wav, engine_switch.wav\n", dir, SOLO[0], SOLO[1], SOLO[2], SOLO[3], SOLO[4]);
-    /* one part: every preset with 8 held notes (the engine's cap: VOICE 4) + drums; the worst one */
+    /* one part: every preset with 8 held notes (the engine's cap: FM6 6) + drums; the worst one */
     for (e = 0; e < NENGINES; e++)
         for (pi = 0; pi < ENGINES[e]->npresets; pi++) {
             uint8_t parts[NPART][3] = {{(uint8_t)e, (uint8_t)pi, 8}, {0, 0, 0}, {0, 0, 0}};
@@ -755,10 +755,12 @@ static int tracks_test(const char *dir)
     printf("tracks: one part, 8 notes held + drums (host -O2, ns per sample, heaviest preset per engine):");
     for (e = 0; e < NENGINES; e++)
         printf(" %s %s %.1f%s", ENGINES[e]->name, ENGINES[e]->presets[heavy[e]].name, best_e[e], e + 1u < NENGINES ? "," : "\n");
-    {   /* DIGITAL, PHASE, VOICE (their heaviest presets) at once: 3 + 3 + 2 notes = the budget of 8 */
-        uint8_t parts[NPART][3] = {{1, (uint8_t)heavy[1], 3}, {2, (uint8_t)heavy[2], 3}, {5, (uint8_t)heavy[5], 2}};
-        uint8_t full[NPART][3] = {{1, (uint8_t)heavy[1], 8}, {2, (uint8_t)heavy[2], 8}, {5, (uint8_t)heavy[5], 4}};
-        uint8_t vv[NPART][3] = {{5, (uint8_t)heavy[5], 4}, {5, (uint8_t)heavy[5], 4}, {0, 0, 0}};
+    {   /* TRIO, FM6, ANALOG (their heaviest presets) at once: 3 + 3 + 2 notes = the budget of 8 */
+        uint8_t parts[NPART][3] = {{ENGI_TRIO, (uint8_t)heavy[ENGI_TRIO], 3}, {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 3},
+                                   {ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 2}};
+        uint8_t full[NPART][3] = {{ENGI_TRIO, (uint8_t)heavy[ENGI_TRIO], 8}, {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 8},
+                                  {ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 4}};
+        uint8_t vv[NPART][3] = {{ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 4}, {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 4}, {0, 0, 0}};
         uint8_t idle[NPART][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
         uint32_t bm2 = 0, bm3 = 0;
         double two_voice, none;
@@ -767,11 +769,11 @@ static int tracks_test(const char *dir)
         two_voice = tracks_cost(vv, &bm3);
         none = tracks_cost(idle, 0);
         printf("tracks: worst single part: %s %s %.1f ns\n", ENGINES[worst_e]->name, ENGINES[worst_e]->presets[worst_p].name, worst);
-        printf("tracks: DIGITAL + PHASE + VOICE + drums, 3 + 3 + 2 notes: %.1f ns (%.2f x the worst single part), "
+        printf("tracks: TRIO + FM6 + ANALOG + drums, 3 + 3 + 2 notes: %.1f ns (%.2f x the worst single part), "
                "%u voices\n", four, four / worst, bm);
         printf("tracks: the same, 8 + 8 + 4 notes asked for (budget keeps %u): %.1f ns (%.2f x)\n", bm2, four_full,
                four_full / worst);
-        printf("tracks: two VOICE parts, 4 + 4 voices (the heaviest 8 the budget allows): %.1f ns (%.2f x); "
+        printf("tracks: two FM6 parts, 4 + 4 voices (the heaviest 8 the budget allows): %.1f ns (%.2f x); "
                "no notes (drums, buses, 3 idle parts): %.1f ns\n", two_voice, two_voice / worst, none);
         if (bm > NVOICE || bm2 > NVOICE || bm3 > NVOICE)
             fail++;

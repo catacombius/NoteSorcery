@@ -17,15 +17,16 @@ enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #ifndef FELUCCA_SLICE
 #define FELUCCA_SLICE 0          /* the SLICE engine (eng_slice.c): kept in the tree, not built by default */
 #endif
-/* SLOOP 2.4: FM6 (eng_fm6.c) is engine 9 in every build; SLICE, when built, comes last (10). Projects and user
- * presets store the engine index as a byte, and no shipped SLOOP was built with SLICE, so its number is stored
- * nowhere: FM6 may take 9 and SLICE moves up (engines.c ENGINES[], params.c N_ENGNAME follow this order) */
-#define NENGINES (12 + FELUCCA_SLICE)
-#define ENGI_GRAIN 8u            /* GRAIN, PHYS, NOISE (SLOOP 2.5, appended after FM6: the stores keep the numbers) */
-#define ENGI_PHYS 10u
-#define ENGI_NOISE 11u
-#define ENGI_SLICE 12u           /* with FELUCCA_SLICE: after NOISE */
-#define ENGI_FM6 9u              /* the FM6 engine's index (eng_fm6.c, the stores: append-only) */
+/* NoteSorcery: the engine table was renumbered (projects are format NSP1, older ones are not read): ANALOG, TRIO,
+ * FM6, SAMPLE, then the engines NoteSorcery adds; SLICE, when built, comes last. The engine index is stored as a
+ * byte in projects and user presets: append new engines, never reorder (engines.c ENGINES[], params.c N_ENGNAME) */
+#define ENGI_ANALOG 0u
+#define ENGI_TRIO 1u
+#define ENGI_FM6 2u              /* the FM6 engine's index (eng_fm6.c) */
+#define ENGI_SAMPLE 3u
+#define NENGINES_CORE 4u         /* the engines every build has */
+#define NENGINES (NENGINES_CORE + FELUCCA_SLICE)
+#define ENGI_SLICE NENGINES_CORE /* with FELUCCA_SLICE: after the others */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
 #define NELEM(a) (sizeof(a) / sizeof((a)[0]))
 
