@@ -104,10 +104,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build
-        working-directory: android/botanica
+        working-directory: android/botanica         # (the runner's Android SDK, ANDROID_HOME; AGP fetches what it lacks)
         run: |
           ./gradlew --no-daemon :core:test :app:assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk "botanica-garden-$BOTANICA_VERSION-debug.apk"
