@@ -14,6 +14,8 @@
  * The echoes are events, not audio: they wait in a small queue (drop_block, from the sequencer's block) and start
  * as notes of the same track through the voice budget (an echo never steals a voice: with the budget full it is
  * dropped), 50 ms long (the partials ring on). The engine's envelopes are the voice's amplitude (ownenv); done() ends it when every partial is quiet.
+ * A released note is damped, as a hand on the bar: its partials ring at most DROP_Q_RING (tau 0.54 s), so a voice
+ * is free a few seconds after its note-off; held, the key scaling stops at DROP_Q_MAX (tau 4.4 s).
  *
  * Voice state: ph[0..2] the partials' phases (CHRP: carrier, modulator), s[0..2] their envelopes (Q24), s[3] the
  * chirp (Q15), s[4] the noise state, s[5] the click's envelope, s[6] the detune of an echo (1/4096 semitone). */
@@ -24,6 +26,8 @@ static const char *const N_DROP_MODEL[] = {"KALIM", "MARIM", "BOX", "GLASS", "HA
 static const char *const N_DROP_TIME[] = {"1/16", "1/32", "16T", "32T", "1/64"};
 #define DROP_CHIRP 5u                                    /* MODEL >= this: the FM drop */
 #define DROP_ONE (1 << 24)
+#define DROP_Q_MAX 112                                   /* the longest ring held: tau 1500 << 7 samples (4.4 s) */
+#define DROP_Q_RING 64                                   /* released: tau 1500 << 4 samples (0.54 s), -60 dB in 3.8 s */
 static const struct {
     uint16_t r1, r2;                                     /* partials 2 and 3: ratio to the fundamental, Q10 */
     uint16_t a1, a2;                                     /* their levels, Q15 */
@@ -177,11 +181,14 @@ static void droplet_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, con
     int32_t semis = (m->pitch16 >> 4) - 60, q = p[P_E3] + 8 - semis;   /* DECAY 0..127: tau 47 ms .. 4.5 s at C4 */
     int32_t vel = v->vel * 258, brit = p[P_E4] * 258, nst = v->s[4];
     uint32_t inc = m->inc;
+    int32_t qmax = v->gate ? DROP_Q_MAX : DROP_Q_RING;  /* (the key scaling: low notes ring longer) */
     int32_t e0a = v->s[0], e1a = v->s[1], e2a = v->s[2], cka = v->s[5], cha = v->s[3];
     int32_t e0b, e1b, e2b, ckb = drop_step(cka, drop_fac(4)), chb;
     uint32_t p0 = v->ph[0], p1 = v->ph[1], p2 = v->ph[2], i1, i2;
     if (v->s[6])                                         /* an echo's detune (SPRD) */
         inc += (uint32_t)((int32_t)(inc >> 12) * v->s[6] / 16);
+    if (q > qmax)
+        q = qmax;
     e0b = drop_step(e0a, drop_fac(q));
     if (model < DROP_CHIRP) {
         e1b = drop_step(e1a, drop_fac(q + DROP_MODES[model].d1));
