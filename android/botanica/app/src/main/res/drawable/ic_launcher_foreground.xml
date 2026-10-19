@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the BOTANICA flower (assets/logo/botanica.svg): five petals round a pollen heart, on a stem with a leaf -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#8BC34A" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M54,58 C54,66 53,72 52,80" />
+    <path android:fillColor="#8BC34A" android:pathData="M53,72 C60,64 68,66 70,68 C64,74 58,75 53,72 Z" />
+    <group android:translateX="54" android:translateY="46">
+        <path android:fillColor="#F48FB1" android:pathData="M0,-4 C-6,-10 -5,-18 0,-20 C5,-18 6,-10 0,-4 Z" />
+        <group android:rotation="72">
+            <path android:fillColor="#F48FB1" android:pathData="M0,-4 C-6,-10 -5,-18 0,-20 C5,-18 6,-10 0,-4 Z" />
+        </group>
+        <group android:rotation="144">
+            <path android:fillColor="#F48FB1" android:pathData="M0,-4 C-6,-10 -5,-18 0,-20 C5,-18 6,-10 0,-4 Z" />
+        </group>
+        <group android:rotation="216">
+            <path android:fillColor="#F48FB1" android:pathData="M0,-4 C-6,-10 -5,-18 0,-20 C5,-18 6,-10 0,-4 Z" />
+        </group>
+        <group android:rotation="288">
+            <path android:fillColor="#F48FB1" android:pathData="M0,-4 C-6,-10 -5,-18 0,-20 C5,-18 6,-10 0,-4 Z" />
+        </group>
+        <path android:fillColor="#FFE082" android:pathData="M-5,0 A5,5 0 1,0 5,0 A5,5 0 1,0 -5,0 Z" />
+    </group>
+</vector>

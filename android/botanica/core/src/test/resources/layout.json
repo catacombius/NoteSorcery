@@ -1,0 +1,7 @@
+{"magic": 827348034, "size": 7672, "P_COUNT": 64, "G_COUNT": 43, "NTRK": 8, "NPART": 6, "NSTEP": 64, "NLOCK": 24,
+ "P": {"LEVEL": 0, "ROOT": 25, "SCALE": 26, "TRANS": 28, "SLEN": 29, "SDIV": 30, "SSWING": 31, "SGATE": 32, "PAN": 39, "MUTE": 40, "E0": 56},
+ "G": {"BPM": 0, "SWING": 1},
+ "ENGINES": ["FELT", "DROPLET", "ANALOG", "SAMPLE", "NOISE", "PHYS", "GRAIN", "VOICE", "WAVE"],
+ "offsets": {"g": 8, "t": 98, "trk": 946, "step": 130, "micro": 770, "lock": 834, "fill": 930, "sum": 7668},
+ "LANE_NOTE": [36, 35, 38, 39, 42, 46, 44, 37, 40, 43, 48, 49, 51, 70, 63, 56],
+ "NSCALES": 16}
