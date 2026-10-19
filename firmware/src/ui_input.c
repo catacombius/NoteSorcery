@@ -140,6 +140,14 @@ static uint32_t keys_lit(void)
             m |= 1u << MIX_K_BAR;
         if (play_led())
             m |= 1u << MIX_K_TAP;                  /* (tap tempo: the beat) */
+#if EDITION_BOTANICA
+        if (bot_brk)
+            m |= 1u << MIX_K_BREAK;                /* BREAK, the drop armed */
+        if (bot.frozen)
+            m |= 1u << MIX_K_FREEZE;
+        if (bseq.glitch_hold || bseq.gl_fx >= 0)
+            m |= 1u << MIX_K_GLITCH;
+#endif
         return m;
     case LY_ERASE:                                 /* the sounds the pattern holds (NOTES: dim, the hits lit) */
         return (lights_notes ? 0u : erase_lanes(t)) | fm1_in.notes | (lights_notes ? keys_sounding(t) : 0u);
@@ -440,6 +448,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         fm1_irq_on();
         ui_message("PATTERN CLEARED");
         break;
+#if !EDITION_BOTANICA
     case G_GEN:                                           /* NoteSorcery: a 303 line, a new one each time */
         *vp = 0;
         if (is_drum(TSEL)) {
@@ -453,6 +462,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         ui_message("303 LINE");
         sync_reload = 1;
         break;
+#endif
     case G_INITSND:
         *vp = 0;
         set_engine(TSEL->eng_req);                              /* engine defaults + its first preset */
@@ -824,7 +834,9 @@ static void ui_input(void)
     enc_hold = 0;                                       /* (panel.c: every knob readable again this pass) */
     if (pressed || notes)
         ui_input_ms = fm1_ms;
+#if HAVE_FM6
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
+#endif
     if (home == BT_HOLD) {                              /* HOME held: open the menu, or leave it */
         if (ui.menu) {
             menu_close();

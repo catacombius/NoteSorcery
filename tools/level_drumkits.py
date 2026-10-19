@@ -38,10 +38,12 @@ def loudness(x):
 
 
 def main(raw):
-    names = re.findall(r'\("([^"]+)", "[^"]*", 0x?[0-9A-F]*,', (HERE / "gen_drumkits.py").read_text())
+    sys.path.insert(0, str(HERE))
+    import gen_drumkits                        # the kits of the edition (NS_EDITION=botanica: BOTANICA's)
+    names = [k[0] for k in gen_drumkits.KITS]
     d = np.fromfile(raw, np.int32).astype(float) / 32768.0
     assert len(d) == len(names) * 16 * N, "the hits do not match gen_drumkits.py (rebuild first)"
-    path = HERE / "drumkit_levels.json"
+    path = gen_drumkits.LEVELS_FILE
     old = json.loads(path.read_text()) if path.exists() else {}
     out = {}
     for ki, n in enumerate(names):

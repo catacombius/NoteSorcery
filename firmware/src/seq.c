@@ -216,10 +216,60 @@ static const int8_t CHORD_DEG[6][4] = {
     {0, 3, 4, -1},                       /* SUS4: 1 4 5 */
     {0, -1, -1, -1},                     /* POWER: 1 5 8 (semitones, below) */
 };
+#if EDITION_BOTANICA
+/* BOTANICA's petal chords: the extended ones in semitones from the key (MAJ7 MAJ9 ADD9 6/9 LYD#11: spread over four
+ * voices, as a felt piano voices them), and two progressions the white keys step through, each press the next chord,
+ * placed nearest the key: ROYAL (IVmaj7 V7 iii7 vi7, the Royal Road) and PETAL (IVmaj7 Vadd9 vi9 Iadd9: "heartbreaking
+ * at the minor, then it resolves"), in the track's key (ROOT) */
+#define CH_SEMI0 6u                                     /* N_CHORD index of MAJ7 */
+#define CH_ROYAL 11u
+#define CH_PETAL 12u
+#define CH_LAST 12
+static const uint8_t CHORD_SEMI[5][4] = {
+    {0, 4, 7, 11},                                      /* MAJ7 */
+    {0, 4, 11, 14},                                     /* MAJ9: 1 3 7 9 (no 5th: spread) */
+    {0, 4, 7, 14},                                      /* ADD9 */
+    {0, 4, 9, 14},                                      /* 6/9 */
+    {0, 4, 11, 18},                                     /* LYD#11: maj7 #11 */
+};
+static const struct { uint8_t deg; uint8_t semi[4]; } CHORD_PROG[2][4] = {
+    {{5, {0, 4, 7, 11}}, {7, {0, 4, 7, 10}}, {4, {0, 3, 7, 10}}, {9, {0, 3, 7, 10}}},   /* ROYAL: IVmaj7 V7 iii7 vi7 */
+    {{5, {0, 4, 7, 11}}, {7, {0, 4, 7, 14}}, {9, {0, 3, 10, 14}}, {0, {0, 4, 7, 14}}},  /* PETAL: IVmaj7 Vadd9 vi9 Iadd9 */
+};
+static uint8_t prog_pos[NPART];                         /* the chord of the progression a track plays next */
+static void prog_advance(const track_t *t)              /* a new press: the next chord (key_down) */
+{
+    uint32_t p = trk_index(t);
+    if (p < NPART && (t->p[P_CHORD] == (int16_t)CH_ROYAL || t->p[P_CHORD] == (int16_t)CH_PETAL))
+        prog_pos[p] = (uint8_t)((prog_pos[p] + 1u) & 3u);
+}
+#else
+#define CH_LAST 5
+#endif
 static uint32_t chord_notes(const track_t *t, uint32_t n, uint8_t *c)
 {
-    uint32_t type = (uint32_t)clamp(t->p[P_CHORD], 0, 5), mask = t->p[P_SCALE] ? scale_mask(t) : SCALE_MASK[2];
+    uint32_t type = (uint32_t)clamp(t->p[P_CHORD], 0, CH_LAST), mask = t->p[P_SCALE] ? scale_mask(t) : SCALE_MASK[2];
     uint32_t k = 0, j;
+#if EDITION_BOTANICA
+    if (type >= CH_SEMI0 && type < CH_ROYAL) {
+        for (j = 0; j < 4u; j++)
+            if (n + CHORD_SEMI[type - CH_SEMI0][j] < 128u)
+                c[k++] = (uint8_t)(n + CHORD_SEMI[type - CH_SEMI0][j]);
+        return k;
+    }
+    if (type >= CH_ROYAL) {                             /* the progression's chord now, its root nearest the key */
+        uint32_t part = trk_index(t) % NPART, pos = prog_pos[part] & 3u;
+        int32_t r = (int32_t)(t->p[P_ROOT] + CHORD_PROG[type - CH_ROYAL][pos].deg) % 12, d;
+        d = (((r - (int32_t)n) % 12) + 12) % 12;        /* up to the chord's root .. */
+        r = (int32_t)n + (d > 6 ? d - 12 : d);          /* .. or down, the nearer */
+        for (j = 0; j < 4u; j++) {
+            int32_t m = r + CHORD_PROG[type - CH_ROYAL][pos].semi[j];
+            if (m >= 0 && m < 128)
+                c[k++] = (uint8_t)m;
+        }
+        return k;
+    }
+#endif
     if (type == 5u) {
         static const uint8_t PW[3] = {0, 7, 12};
         for (j = 0; j < 3u; j++)
@@ -279,8 +329,12 @@ static void sort_notes(uint8_t *c, uint32_t n)
 /* the chord of white key n with the modifiers held, voiced (VLEAD); its notes (<= 4) into c[] */
 static uint32_t chord_play_notes(track_t *t, uint32_t n, uint32_t mods, uint8_t *c)
 {
-    uint32_t k = chord_notes(t, n, c), j, type = (uint32_t)clamp(t->p[P_CHORD], 0, 5), part = trk_index(t);
+    uint32_t k = chord_notes(t, n, c), j, type = (uint32_t)clamp(t->p[P_CHORD], 0, CH_LAST), part = trk_index(t);
+#if EDITION_BOTANICA
+    if (type < 5u && k >= 2u && mods) {                 /* (POWER: the inversion only; the petal chords: as they are) */
+#else
     if (type != 5u && k >= 2u && mods) {                /* (POWER: the inversion only) */
+#endif
         uint32_t third = scale_up(t, n, 2u);
         for (j = 0; j < k; j++) {
             if (c[j] == third && (mods & CM_SUS4))
@@ -782,7 +836,9 @@ static void steps_clear(track_t *t)           /* an empty pattern (synth: REST s
     memset(t->fill, 0, sizeof t->fill);
 }
 
+#if !EDITION_BOTANICA
 #include "gen_tb3po.c"                          /* TOOLS > GEN: a 303 line (NoteSorcery, after X0X's TB-3PO) */
+#endif
 
 /* tempo x 10 of a loop of T blocks holding n bars of 4/4 */
 static uint32_t ft_bpm10(uint32_t T, uint32_t n)
@@ -1336,6 +1392,10 @@ static void chord_revoice(uint32_t sel)
         uint32_t nn;
         if (kb_kind[k] != KS_NOTE || kb_trk[k] != sel || !t->p[P_CHORD] || is_drum(t))
             continue;
+#if EDITION_BOTANICA
+        if (t->p[P_CHORD] > 5)
+            continue;                               /* (the petal chords and progressions take no modifiers) */
+#endif
         nn = chord_play_notes(t, kb_root[k], mods, nw);
         for (i = 0; i < kb_n[k]; i++) {             /* the notes it loses */
             for (j = 0; j < nn && nw[j] != kb_nt[k][i]; j++)
@@ -1453,6 +1513,9 @@ static void key_down(uint32_t k)
         kb_root[k] = (uint8_t)n;
         if (t->p[P_CHORD]) {
             kb_n[k] = (uint8_t)chord_play_notes(t, n, chord_mods(), kb_nt[k]);   /* (the modifiers held, voiced) */
+#if EDITION_BOTANICA
+            prog_advance(t);                        /* ROYAL, PETAL: the next press, the next chord */
+#endif
         } else {
             kb_nt[k][0] = (uint8_t)n;
             kb_n[k] = 1;
@@ -1758,6 +1821,9 @@ static void seq_release(track_t *t)
     t->slide_glide = 0;                             /* live MONO / LEG keys must not glide after it */
 }
 
+#if EDITION_BOTANICA
+#include "bot_seq.c"                                    /* DRIFT, BREAK / DROP, GLITCH, FOLEY, the ratchets' shapes */
+#endif
 static void seq_stop(void)
 {
     uint32_t i;
@@ -1777,6 +1843,9 @@ static void seq_stop(void)
         trk[i].rh_n = 0;                           /* a recorded note held over the stop: as far as it got */
     }
     seq_out_all_off();
+#if EDITION_BOTANICA
+    bot_stop();                                    /* no glitch, foley hit or break left on */
+#endif
 #if FELUCCA_ARRANGER
     if (arrangement_clock.running) {
         arrangement_clock.running = 0;
@@ -1885,6 +1954,45 @@ static void seq_ratchets(track_t *t, uint32_t into, uint32_t slen)
         }
         return;
     }
+#if EDITION_BOTANICA
+    {
+        const step_t *s = &t->step[t->seq_idx % NSTEP];
+#if EDITION_BOTANICA
+        if (bot_sx_on[trk_index(t) % NPART])
+            s = &bot_sx[trk_index(t) % NPART];      /* (the step as GLITCH ratcheted it) */
+#endif
+        if (s->time != ST_NOTE || !s->rat)
+            return;
+        for (i = 0; i < s->n; i++) {
+            uint32_t hits = 1u + ((s->rat >> (2u * i)) & 3u), h;
+            if (hits == 1u || roll_has(t, s->note[i]))
+                continue;
+            h = into * hits / slen;
+#if EDITION_BOTANICA
+            if (t->p[P_RATMODE] == 2)                /* BOUNCE: at 1/2, 3/4, 7/8 of the step */
+                for (h = 0; h + 1u < hits && into >= slen - (slen >> (h + 1u)); h++)
+                    ;
+#endif
+            if (h > t->rat_done[i] && h < hits) {
+                uint32_t j, off = s->note[i], on = s->note[i], vel = step_vel(s, i), g = slen / hits;
+#if EDITION_BOTANICA
+                bot_ratchet(t, s, i, hits, h, &off, &on, &vel, &g, slen);   /* RAMP, BOUNCE, RAND */
+#endif
+                t->rat_done[i] = (uint8_t)h;
+                trk_note_off(t, off);
+                trk_note_on(t, on, vel);
+                seq_out_on(t, on, vel);
+                t->seq_off = g * (uint32_t)t->p[P_SGATE] / 128u;
+                for (j = 0; j < t->seq_n && t->seq_notes[j] != off; j++)
+                    ;
+                if (j < t->seq_n)
+                    t->seq_notes[j] = (uint8_t)on;   /* (RAMP: the note it moved to; its gate ends it) */
+                else if (t->seq_n < 4u)
+                    t->seq_notes[t->seq_n++] = (uint8_t)on;
+            }
+        }
+    }
+#else
     {
         const step_t *s = &t->step[t->seq_idx % NSTEP];
         if (s->time != ST_NOTE || !s->rat)
@@ -1908,6 +2016,7 @@ static void seq_ratchets(track_t *t, uint32_t into, uint32_t slen)
             }
         }
     }
+#endif
 }
 
 /* the nudge of grid step abs of track t, in units of a step slen long: where in its own step it fires
@@ -1995,6 +2104,9 @@ static void seq_tick(track_t *t, uint32_t adv)
                         if (s->note[i] == t->rskip[k])
                             skip |= 1u << i;
             t->rskip_n = 0;
+#if EDITION_BOTANICA
+            s = bot_step(t, s);                      /* GLITCH: a ratchet now and then */
+#endif
             seq_step(t, s, slen, skip);
         }
     }
@@ -2339,6 +2451,9 @@ static void events_block(uint32_t n)
     keyboard_block();
     drum_audition_poll();                             /* (the editor's DRUM SYNTH page) */
     strum_block(n);                                   /* (voice.c: the strummed notes due) */
+#if EDITION_BOTANICA
+    bot_block(n);                                     /* droplets, DRIFT, BREAK / DROP, GLITCH, FOLEY (bot_seq.c) */
+#endif
     while (mi_r != mi_w) {                            /* USB-MIDI (and TRS) in */
         uint32_t pkt = midi_in_q[mi_r % MQ], st = (pkt >> 8) & 0xF0u, ch = (pkt >> 8) & 0x0Fu;
         uint32_t d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu;

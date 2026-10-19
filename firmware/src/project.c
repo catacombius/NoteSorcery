@@ -13,7 +13,11 @@
  *
  * Built on the host too (tests/project_test.c, -DPROJ_HOST, with the sections in RAM): the part above the
  * #ifndef PROJ_HOST needs core.h, params.c (TP), drums.c (the lanes), the engines and trk_def_engine (ui.c). */
+#if EDITION_BOTANICA
+#define PROJ_MAGIC 0x31505442u                 /* "BTP1": BOTANICA's projects (its engines, its parameters) */
+#else
 #define PROJ_MAGIC 0x3150534Eu                 /* "NSP1" */
+#endif
 typedef struct {                               /* one track; a drum track ignores engine / preset */
     int16_t p[P_COUNT];
     uint8_t engine, preset;
@@ -143,7 +147,9 @@ static void proj_apply(const project_t *p, int all)
                 for (j = 0; j < 4u; j++)
                     st->note[j] &= 127u;
             }
+#if HAVE_FM6
         fm6_track_loaded(t);                            /* FM6: the project keeps PTCH, not the patch: its slot's */
+#endif
     }
 }
 
@@ -184,7 +190,9 @@ static void sec_scan(uint32_t s)
     uint32_t off = c < 0 || h.len != sizeof(project_t) ? 0u : st_sector(OBJ_PROJECT0 + (s & 3u), (uint32_t)c) + ST_PAYLOAD_OFF;
     sec_off[s & 3u] = off && proj_ok((const project_t *)fm1_xip_ptr(off)) ? off : 0u;
 }
+#if HAVE_FM6
 #include "fm6_bank.c"                           /* the FM6 patch bank (eng_fm6.c PTCH B1..B27): staged in proj_stage */
+#endif
 #endif
 
 static void project_save(uint32_t slot)
@@ -403,7 +411,9 @@ static void persist_boot(void)                    /* before settings_init / pane
     }
     dsu_boot();                                    /* SLOOP 2.5: the SYN kits (after the settings) */
     up_boot();                                     /* user presets */
+#if HAVE_FM6
     fm6_bank_boot();                               /* the FM6 patch bank (fm6_bank.c) */
+#endif
 #endif
 }
 

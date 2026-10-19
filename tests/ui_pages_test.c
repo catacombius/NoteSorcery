@@ -189,6 +189,10 @@ int main(int argc, char **argv)
     }
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-global");
     open_family(FAM_GLO); ui.force = 1; frame(); ppm("page-master");
+#if EDITION_BOTANICA
+    open_family(FAM_SAVE); ui.force = 1; frame(); ppm("bot-mood-browser");
+    open_family(FAM_SCL); open_family(FAM_SCL); open_family(FAM_SCL); ui.force = 1; frame(); ppm("bot-feel");
+#endif
     open_family(FAM_SCL); ui.force = 1; frame(); ppm("page-scale");
     {   /* (2.4) GLO > SYSTEM: KNOB 1 is MIDI OUT (KEYS / SEQ), shown as such; the USB status in the third column */
         uint32_t i, m0 = (uint32_t)song.g[G_MIDI];
@@ -948,11 +952,12 @@ int main(int argc, char **argv)
         }
         go_home(); frames(20);                      /* (the knobs quiet after the layers above) */
         transport_req = 1; frames(30);
+        vis_on = 0;                                 /* (BOTANICA powers on into its GARDEN) */
         check(!vis_shown(), "visualiser: closed on the TRACKS screen");
         tap(B_HOME); frames(2);
         check(vis_shown() && vis_on, "visualiser: HOME on HOME opens it");
         vis_style = 0; ui.force = 1;
-        for (st = 0; st < 12u; st++) {
+        for (st = 0; st < VIS_N; st++) {
             char nm[80];
             frames(st == 0u ? 40u : 70u);           /* (past the name's second) */
             ui.force = 1; frames(2);
@@ -962,9 +967,25 @@ int main(int argc, char **argv)
             for (x = 0; nm[x]; x++) if (nm[x] == ' ') nm[x] = '-';
             ppm(nm);
             snprintf(nm, sizeof nm, "visualiser %2u %-12s draws (%u px lit)", st + 1u, VIS_NAME[st], lit);
-            check(lit > (st == 3u ? 400u : 1500u) && vis_style == st, nm);   /* (Lissajous: points) */
+            check(lit > (!strcmp(VIS_NAME[st], "LISSAJOUS") ? 400u : 1500u) && vis_style == st, nm);   /* (Lissajous: points) */
             encs[panel.enc[EN_SELECT]] = 1; frame();
         }
+#if EDITION_BOTANICA
+        {   /* BOTANICA's GARDEN with the weather in: rain, the bloom's glow, a drifting tempo, droplets in the pond */
+            uint32_t sv = vis_style, l2;
+            vis_style = 0;
+            trk[1].eng_req = trk[1].engine = ENGI_DROPLET;
+            song.g[G_WEATHER] = 70; song.g[G_BLOOM] = 80; song.g[G_DRIFT] = 160; song.g[G_BREEZE] = 90;
+            ui.force = 1; frames(44);
+            for (l2 = 0, x = 0; x < 240u * 240u; x++) l2 += screen[x] != 0;
+            ppm("bot-garden-weather");
+            check(l2 > 30000u, "GARDEN: the sky, the plants, the rain drawn (BOTANICA)");
+            bot.freeze_hold = 1; song.g[G_WEATHER] = 0; frames(8); ui.force = 1; frames(2); ppm("bot-garden-frost");
+            bot.freeze_hold = 0; song.g[G_BLOOM] = 0; song.g[G_DRIFT] = 0; song.g[G_BREEZE] = 0;
+            trk[1].eng_req = trk[1].engine = 0;
+            vis_style = sv; ui.force = 1; frames(2);
+        }
+#endif
         {   /* MASTER at 0: silence out, the picture as if MASTER were all the way up */
             uint32_t m0 = song.master_q12, pk = 0, op = 0, b;
             static int32_t o2[CTL * 2];
@@ -976,11 +997,11 @@ int main(int argc, char **argv)
             check(op < 64u && pk > 2000u && lit > 1500u, "visualiser: MASTER at 0: no sound, the picture as at full volume");
             song.master_q12 = m0; frames(4);
         }
-        check(vis_style == 0u, "visualiser: SELECT goes round (12 -> 1)");
+        check(vis_style == 0u, "visualiser: SELECT goes round (the last -> 1)");
         encs[panel.enc[EN_SELECT]] = -1; frames(2);
-        check(vis_style == 11u && (lights_word() >> 17 & 15u) == 11u, "visualiser: SELECT left: SLOOP (12), kept in the settings word");
+        check(vis_style == VIS_N - 1u && (lights_word() >> 17 & 15u) == VIS_N - 1u, "visualiser: SELECT left: SLOOP (the last), kept in the settings word");
         lights_from_word(lights_word());
-        check(vis_style == 11u, "visualiser: the style read back");
+        check(vis_style == VIS_N - 1u, "visualiser: the style read back");
         { int16_t bpm = song.g[G_BPM], lv = trk[0].p[P_LEVEL];
           encs[panel.enc[EN_K2]] = 5; frame();
           check(trk[0].p[P_LEVEL] == lv && song.g[G_BPM] == bpm, "visualiser: KNOB 2 (the hidden TRACKS screen) edits nothing, SELECT is not the tempo"); }

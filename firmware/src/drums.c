@@ -9,7 +9,12 @@
  * ISR. */
 #define NDRUM 6
 #include "drum_synth.c"       /* synthesised kits (DS_KITS) */
+#if EDITION_BOTANICA
+#define DRUM_CM 0                /* BOTANICA: no circuit kits (the foley kits instead: tools/gen_drumkits.py) */
+#else
+#define DRUM_CM 1
 #include "x0x_drums.c"          /* the 808 CM and 909 CM kits: X0X's circuit models */
+#endif
 /* P_E0 was unused on the drum track: it holds the kit. 0..4: the GM sample kit and its four
  * treatments (as before: old projects keep their kit), 5..: the synthesised kits, then (2.4) USR1..USR4:
  * a user sample slot as a kit (the web editor's DRUM KIT: a sound per lane, zone lo..hi = the lane's note),
@@ -18,6 +23,7 @@
 #define DRUM_USR (DRUM_SAMPLED + DS_NKITS)
 #define DRUM_PAIR (DRUM_USR + SMP_USER_SLOTS)   /* USR3+4: one kit in two slots (the editor splits it), ~15 s */
 #define DRUM_SYN (DRUM_PAIR + 1u)                /* SLOOP 2.5: SYN1..SYN4, your synthesised kits (drum_synth.c dsu) */
+#if DRUM_CM
 #define DRUM_CM808 (DRUM_SYN + DSU_N)             /* NoteSorcery: X0X's circuit-modelled TR-808 (x0x_drums.c) */
 #define DRUM_CM909 (DRUM_CM808 + 1u)              /* ... and TR-909 (its hats and cymbals: the synthesised 909's) */
 #define DRUM_KITS (DRUM_CM909 + 1u)
@@ -28,12 +34,28 @@ static const char *const DRUM_KIT_STYLES[] = {"STUDIO", "SOFT", "PUNCHY", "BRIGH
                                               "YOUR KIT", "YOUR KIT", "YOUR KIT", "YOUR KIT", "BIG KIT",
                                               "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH",
                                               "CIRCUIT", "CIRCUIT"};
+#else
+#define DRUM_CM808 0xFFFFu                        /* (no circuit kits) */
+#define DRUM_CM909 0xFFFFu
+#define DRUM_KITS (DRUM_SYN + DSU_N)
+static const char *const DRUM_KIT_NAMES[] = {"ACOUSTIC", "DEEP", "TIGHT", "BRIGHT", "DUST", DS_KIT_NAME_LIST,
+                                             "USR1", "USR2", "USR3", "USR4", "USR3+4",
+                                             "SYN1", "SYN2", "SYN3", "SYN4"};
+static const char *const DRUM_KIT_STYLES[] = {"STUDIO", "SOFT", "PUNCHY", "BRIGHT", "DUSTY", DS_KIT_STYLE_LIST,
+                                              "YOUR KIT", "YOUR KIT", "YOUR KIT", "YOUR KIT", "BIG KIT",
+                                              "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH", "YOUR SYNTH"};
+#endif
 _Static_assert(sizeof(DRUM_KIT_NAMES) / sizeof(DRUM_KIT_NAMES[0]) == DRUM_KITS, "a name per kit");
 static uint32_t drum_kit_of(const track_t *t) { return (uint32_t)clamp(t->p[P_E0], 0, DRUM_KITS - 1); }
 static uint32_t drum_kit(void) { return drum_kit_of(TDRUM); }   /* the drum track the UI shows */
 #define DRUM_DEFAULT_KIT DRUM_SAMPLED   /* (the synthesised 808) */
+#if EDITION_BOTANICA
+/* BOTANICA power-on: drum track 1 the TWIG kit (wood and felt), drum track 2 the FIELD kit (foley) */
+#define DRUM_DEFAULT_KIT_OF(d) ((d) ? DRUM_SAMPLED + DS_KIT_FIELD : DRUM_SAMPLED + DS_KIT_TWIG)
+#else
 /* NoteSorcery power-on: drum track 1 the circuit 808, drum track 2 the Machinedrum-style EFM kit */
 #define DRUM_DEFAULT_KIT_OF(d) ((d) ? DRUM_SAMPLED + DS_KIT_MD_EFM : DRUM_CM808)
+#endif
 
 typedef struct {
     voice_t v[NDRUM];
@@ -53,6 +75,7 @@ static int16_t drum_gm_set = -2;                 /* SMP_SETS index of "PERC" (GM
 static drums_t *drums_of(const track_t *t) { return &drumst[(uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK]; }
 #define drums (*drums_of(TDRUM))                 /* (the UI: the drum track it shows) */
 
+#if DRUM_CM
 /* ---- NoteSorcery: the circuit-model kits. One slot (in the pool) holds an 808 or a 909; one drum track at a time
  * owns it, and keeps it while its kit is 808 CM or 909 CM. The other drum track asking for a circuit kit then
  * plays the synthesised kit of the same machine (DS_KITS "808" / "909"). Float: run only in the audio ISR. */
@@ -122,6 +145,13 @@ static int cm_on(track_t *t, uint32_t note, uint32_t kit, uint32_t vel)
     cm_hits++;
     return 1;
 }
+
+#else
+static const uint8_t cm_busy = 0;                /* (no circuit kits) */
+static uint32_t cm_hits;
+static int is_cm_kit(uint32_t kit) { (void)kit; return 0; }
+static uint32_t drum_index(const track_t *t) { return (uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK; }
+#endif
 
 static int32_t ds_buf[CTL];
 
@@ -318,6 +348,7 @@ static void drum_on(track_t *t, uint32_t note, uint32_t vel)
         D->hits |= (uint16_t)(1u << lane_of_note(note));
     if (note == 35u || note == 36u)
         drum_kick = 1;                             /* (DUCK) */
+#if DRUM_CM
     if (is_cm_kit(kit)) {                           /* 808 CM / 909 CM: the circuit, else the synthesised machine */
         if (!cm_on(t, note, kit, vel))
         {
@@ -326,6 +357,7 @@ static void drum_on(track_t *t, uint32_t note, uint32_t vel)
         }
         return;
     }
+#endif
     if (kit >= DRUM_SYN) {                          /* SYN1..SYN4: your synthesised kit */
         const dsu_kit_t *u = dsu_kit(kit - DRUM_SYN);
         drum_synth_on(D, note, vel, kit, u->s, u->crush);
@@ -416,6 +448,7 @@ static inline void drums_mix(track_t *t, int32_t *ml, int32_t *mr, int32_t *rev,
         }
         D->tail -= D->tail / 16 + (D->tail > 0 ? 1 : D->tail < 0 ? -1 : 0);
     }
+#if DRUM_CM
     if (cm_owner == drum_index(t)) {            /* the circuit kit, this track's */
         static float cf[CTL], cr[CTL], cd[CTL];
         uint32_t m = n < CTL ? n : CTL;
@@ -448,6 +481,7 @@ static inline void drums_mix(track_t *t, int32_t *ml, int32_t *mr, int32_t *rev,
             }
         }
     }
+#endif
     for (k = 0; k < NDRUM; k++) {               /* synthesised voices: render, then as below */
         voice_t *v = &D->v[k];
         uint32_t m = n < CTL ? n : CTL;             /* (the mix runs in blocks of CTL) */

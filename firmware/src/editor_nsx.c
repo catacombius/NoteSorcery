@@ -13,6 +13,7 @@ enum { ED_NSX_CAPS = 80, ED_NSX_TRANSPORT, ED_NSX_TEMPO };
 #define NSX_F_USB_AUDIO_IN 4u    /* the FM-1's audio to the host (UAC IN) */
 #define NSX_F_USB_AUDIO_OUT 8u   /* the host's audio to the FM-1 (live sampling) */
 #define NSX_F_CIRCUIT_DRUMS 16u  /* 808 CM / 909 CM */
+#define NSX_F_BOTANICA 32u       /* BOTANICA: projects are BTP1, the PERFORM / SKY globals (found by their DESC label) */
 
 static void ed_u21(uint32_t v)
 {
@@ -32,15 +33,19 @@ static int ed_nsx_handle(uint32_t cmd, const uint8_t *a, uint32_t na)
         ed_b(NDRUMTRK);
         ed_u21(sizeof(project_t));                   /* an NSP1 project (backup objects 0, 2..5) */
         ed_b(PROJ_MAGIC & 0x7Fu);                    /* (the magic's first byte, "N") */
-        ed_b(NSX_F_CLOCK_OUT | NSX_F_SPP_IN | NSX_F_CIRCUIT_DRUMS |   /* (USB SAMPLE: with UAC; the editor means flash) */
-             (FELUCCA_UAC ? NSX_F_USB_AUDIO_IN | NSX_F_USB_AUDIO_OUT : 0u));
+        ed_b(NSX_F_CLOCK_OUT | NSX_F_SPP_IN | (DRUM_CM ? NSX_F_CIRCUIT_DRUMS : NSX_F_BOTANICA) |   /* (USB SAMPLE: with UAC; */
+             (FELUCCA_UAC ? NSX_F_USB_AUDIO_IN | NSX_F_USB_AUDIO_OUT : 0u));             /* the editor means flash) */
         ed_b(song.g[G_DRCH]);                        /* drum track 1's MIDI channel (1..16; drum track 2: the next) */
         ed_b(SMP_USER_SLOTS);
         ed_b(SMP_USER_SIZE >> 10);                   /* KiB a sample slot */
         ed_b(WT_USER);                               /* user single-cycle wave slots (WAVE engine) */
         ed_b(DRUM_KITS);
-        ed_b(DRUM_CM808);
-        ed_b(DRUM_CM909);
+        ed_b(DRUM_CM ? DRUM_CM808 : 127u);           /* (127: none) */
+        ed_b(DRUM_CM ? DRUM_CM909 : 127u);
+#if EDITION_BOTANICA
+        ed_b('B');                                   /* the edition: BOTANICA */
+        ed_b(G_COUNT);                               /* globals (DESC them: BLOOM, DROPS, FOLEY, GLTCH, WTHR, ...) */
+#endif
         break;
     case ED_NSX_TRANSPORT: {
         uint32_t op = na ? a[0] : 0u;

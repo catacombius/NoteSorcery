@@ -104,15 +104,15 @@ int main(void)
     host_tracks_init();
     song.g[G_DRREV] = 0;
     song.g[G_BPM] = 120;
-    check(DRUM_SYN == DRUM_PAIR + 1u && DRUM_CM808 == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_SYN], "SYN1") &&
-          !strcmp(DRUM_KIT_NAMES[DRUM_CM808 - 1u], "SYN4") && !strcmp(DRUM_KIT_STYLES[DRUM_SYN], "YOUR SYNTH"),
+    check(DRUM_SYN == DRUM_PAIR + 1u && T_KIT_AFTER_SYN == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_SYN], "SYN1") &&
+          !strcmp(DRUM_KIT_NAMES[T_KIT_AFTER_SYN - 1u], "SYN4") && !strcmp(DRUM_KIT_STYLES[DRUM_SYN], "YOUR SYNTH"),
           "the kit list: SYN1..SYN4 after USR3+4, then the circuit kits (NoteSorcery)");
     (void)dsu_kit(0);
     ok = 1;
     for (k = 0; k < DSU_N; k++)
         ok &= !memcmp(dsu.k[k].s, DS_KITS[DSU_DEF[k]].s, sizeof dsu.k[k].s) && dsu.k[k].crush == DS_KITS[DSU_DEF[k]].crush &&
               !strncmp(dsu.k[k].name, DS_KITS[DSU_DEF[k]].name, 8) && dsu.k[k].src == DSU_DEF[k];
-    check(ok && !strcmp(DS_KITS[DSU_DEF[0]].name, "808") && !strcmp(DS_KITS[DSU_DEF[3]].name, "TECHNO"),
+    check(ok && !strcmp(DS_KITS[DSU_DEF[0]].name, T_KIT0) && !strcmp(DS_KITS[DSU_DEF[3]].name, T_KIT3),
           "never stored: SYN1..4 = 808, 909, TRAP, TECHNO");
     {
         uint32_t d[DS_LANES], act = 0;
@@ -138,7 +138,7 @@ int main(void)
     /* the editor's commands */
     ed_n = 0;
     ed_dsyn_handle(ED_DSYN_LIST, 0, 0);
-    check(ed_out[0] == DS_NKITS && ed_out[1] == DSU_N && ed_out[2] == 1 && !strcmp((char *)ed_out + 3, "808"),
+    check(ed_out[0] == DS_NKITS && ed_out[1] == DSU_N && ed_out[2] == 1 && !strcmp((char *)ed_out + 3, T_KIT0),
           "DSYN_LIST: 32 factory kits, 4 of yours, stored; the names");
     {
         uint8_t a = (uint8_t)(ED_DSYN_USER + 1u), got[DS_LANES * 22u + 2u];
@@ -147,7 +147,7 @@ int main(void)
         ed_dsyn_handle(ED_DSYN_GET, &a, 1);
         p = 2u + (uint32_t)strlen((char *)ed_out + 2) + 1u;
         k = ed_unpack7(ed_out + p, ed_n - p, got, sizeof got);
-        check(ed_out[0] == a && ed_out[1] == 0 && !strcmp((char *)ed_out + 2, "909") && k == sizeof got - 0u &&
+        check(ed_out[0] == a && ed_out[1] == 0 && !strcmp((char *)ed_out + 2, T_KIT1) && k == sizeof got - 0u &&
               got[0] == DS_KITS[1].crush && got[1] == 1 && !memcmp(got + 2, DS_KITS[1].s, sizeof DS_KITS[1].s),
               "DSYN_GET SYN2: name, crush, the kit it came from, its 16 sounds");
         a = 99;
@@ -165,7 +165,7 @@ int main(void)
               "DSYN_PUT a sound of 0xFF bytes: written, every value in range, not stored");
         check(put(2, 16, hdr, 10) == 0 && !memcmp(dsu.k[2].name, "MY KIT\0\0", 8) && dsu.k[2].crush == 0x21 && dsu.k[2].src == 3,
               "DSYN_PUT the name, the crush, its source");
-        check(put(3, 17, &src, 1) == 0 && !memcmp(dsu.k[3].s, DS_KITS[5].s, sizeof dsu.k[3].s) && !strcmp(dsu.k[3].name, "TRAP"),
+        check(put(3, 17, &src, 1) == 0 && !memcmp(dsu.k[3].s, DS_KITS[5].s, sizeof dsu.k[3].s) && !strncmp(dsu.k[3].name, DS_KITS[5].name, 8),
               "DSYN_PUT 17: SYN4 = a copy of a factory kit");
         check(put(4, 0, ff, 22) == 1 && put(0, 0, ff, 21) == 1 && put(0, 18, ff, 1) == 1, "DSYN_PUT: no such kit / part, a short sound: rc 1");
         ed_n = 0;

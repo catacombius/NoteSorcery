@@ -14,6 +14,7 @@ sound, and every kit comes out as loud as the others, each lane at its place in 
 import copy
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -406,6 +407,92 @@ KITS = [
     ("MD SRR", "MD LO-FI", 0x24, kit(KMD_EFM,                    # the sample-rate reduction the MD is loved for
         KICK=dict(drive=60), SNARE=dict(t2lev=120, drive=40), CHH=dict(t2=4.21), OHH=dict(t2=4.21))),
 ]
+
+# ---- BOTANICA (NS_EDITION=botanica): its own kits, the foley first. Wood, felt and seeds; micro-glitches; a soft
+# lo-fi kit; the hyperpop kit with a sub 808; the FIELD kit of leaves, twigs, drops, wind and crickets
+KTWIG = kit(K808,                                               # wood, felt and seeds
+    KICK=S("sine", 56, 6, 20, 4, 260, 116, click=6, filt=("lp", 900, .1, "all")),            # a felt thump
+    KICK2=S("sine", 50, 4, 30, 30, 380, 110, filt=("lp", 600, .1, "all")),                    # a heartbeat
+    SNARE=S("tri", 920, 0, 5, 0, 30, 96, 1.47, 50, 60, "white", 70, 0, 18, ("bp", 2800, .45, "all")),   # wood snap
+    SNARE2=S(None, src="white", nlev=90, nhold=24, ndec=240, filt=("bp", 3000, .2)),          # a brush
+    CLAP=S(None, src="clap", nlev=110, ndec=70, filt=("bp", 2200, .5), hpf=1200),             # a finger snap
+    CHH=S(None, src="white", nlev=96, ndec=14, filt=("bp", 8200, .5), hpf=6000, click=20),     # a twig tick
+    OHH=S(None, src="white", nlev=92, nhold=20, ndec=220, filt=("bp", 6200, .35), hpf=4000),   # leaves shaken
+    TOMLO=S("sine", 190, 2, 8, 0, 120, 112, 2.3, 50, 50, filt=("bp", 1400, .3, "all")),       # wood blocks
+    TOMHI=S("sine", 270, 2, 8, 0, 100, 110, 2.3, 50, 50, filt=("bp", 2000, .3, "all")),
+    CRASH=S(None, src="white", nlev=80, nhold=60, ndec=900, filt=("bp", 4000, .2)),          # a soft swell of brush
+    RIDE=S("bell", 1180, 0, 5, 0, 900, 90, filt=("bp", 3200, .5, "all")),                     # a small bell
+    SHAKER=S(None, src="white", nlev=96, nhold=20, ndec=60, filt=("bp", 6800, .35)),          # seeds
+    CONGA=S("sine", 220, 3, 25, 4, 260, 116, 1.5, 30, 24, filt=("lp", 1600, .2, "all")),      # a hand drum
+    RIM=S("tri", 2100, 0, 5, 0, 14, 90, 1.47, 70, 50, "white", 40, 0, 4, ("bp", 3400, .4, "all")),   # a stick click
+    COWBELL=S("sine", 820, 0, 5, 0, 70, 110, 3.1, 50, 70),                                    # a wood block
+    CLAVE=S("sine", 2400, 0, 5, 0, 44, 104, click=20),
+)
+KDEW = kit(KFM,                                                 # micro-glitch: blips and chips, tiny and quick
+    KICK=S("sine", 70, 24, 10, 0, 90, 120, click=40),
+    KICK2=S("sine", 120, 36, 6, 0, 50, 110, click=30),
+    SNARE=S(None, src="chip", nlev=108, ndec=40, chip=2600),
+    SNARE2=S(None, src="chip", nlev=100, ndec=24, chip=5200),
+    CLAP=S(None, src="clap", nlev=110, ndec=50, filt=("bp", 3000, .5), hpf=2000),
+    CHH=S(None, src="chip", nlev=96, ndec=8, chip=14000),
+    OHH=S(None, src="chip", nlev=92, ndec=60, chip=12000),
+    TOMLO=S("sine", 600, 24, 15, 0, 60, 106),                   # blips falling
+    TOMHI=S("sine", 1200, 24, 15, 0, 50, 104),
+    CRASH=S(None, src="chip", nlev=90, ndec=400, chip=9000),
+    RIDE=S("sine", 3200, 0, 5, 0, 30, 96, click=10),
+    SHAKER=S(None, src="white", nlev=90, ndec=20, filt=("hp", 9000, .3)),
+    CONGA=S("fm", 400, 12, 20, 0, 80, 110),
+    RIM=S(None, src="white", nlev=96, ndec=4, filt=("hp", 9500, .3), click=40),
+    COWBELL=S("fm", 1600, 0, 5, 0, 60, 104),
+    CLAVE=S("sine", 4200, 0, 5, 0, 20, 100, click=30),
+)
+KFIELD = kit(K808,                                              # foley: a walk in the garden
+    KICK=S("sine", 68, 4, 20, 0, 140, 104, src="white", nlev=60, ndec=30, filt=("lp", 700, .1, "all")),   # a footstep
+    KICK2=S("sine", 50, 4, 30, 30, 380, 110, filt=("lp", 600, .1, "all")),                    # a heartbeat
+    SNARE=S(None, src="white", nlev=116, ndec=22, filt=("bp", 3200, .4), hpf=1500, click=50, drive=30),   # a twig snaps
+    SNARE2=S(None, src="white", nlev=84, nhold=120, ndec=320, filt=("lp", 1600, .2)),         # a breath
+    CLAP=S(None, src="clap", nlev=112, ndec=120, filt=("bp", 4200, .3), hpf=2500),            # leaves crunch
+    CHH=S("sine", 1500, 7, 18, 0, 60, 104, click=4),                                          # a water drop
+    OHH=S(None, src="white", nlev=90, nhold=40, ndec=700, filt=("bp", 5200, .25), hpf=3000),  # rain
+    TOMLO=S("sine", 140, 3, 12, 0, 160, 112, 2.6, 40, 40, filt=("lp", 1200, .2, "all")),      # a log knock
+    TOMHI=S("sine", 620, 2, 6, 0, 40, 108, 3.1, 50, 60),                                      # a stone tap
+    CRASH=S(None, src="white", nlev=86, nhold=200, ndec=2400, filt=("lp", 1100, .3)),        # a gust of wind
+    RIDE=S(None, src="chip", nlev=80, nhold=40, ndec=300, chip=4400, filt=("bp", 4400, .7)),  # a cricket
+    SHAKER=S(None, src="white", nlev=94, nhold=30, ndec=80, filt=("bp", 7400, .35)),          # seeds
+    CONGA=S("sine", 260, 4, 20, 0, 180, 110, 1.6, 30, 30, filt=("lp", 1800, .2, "all")),      # a hollow knock
+    RIM=S(None, src="white", nlev=96, ndec=5, filt=("hp", 9000, .3), click=50),               # a key click
+    COWBELL=S("fm", 2600, 9, 40, 0, 90, 100),                                                 # a bird's chirp
+    CLAVE=S("sine", 1900, 0, 5, 0, 30, 100, click=40),                                        # a branch taps
+)
+KITS_BOTANICA = [
+    ("TWIG", "WOOD + FELT", 0, KTWIG),
+    ("FIELD", "FOLEY", 0, KFIELD),
+    ("DEW", "MICRO GLITCH", 0x25, KDEW),
+    ("MOSS", "SOFT LO-FI", 0x34, kit(K808,
+        KICK=S("sine", 52, 8, 30, 10, 380, 116, click=10, drive=16, filt=("lp", 900, .15, "all")),
+        KICK2=S("sine", 46, 6, 30, 14, 520, 116, click=6, drive=20, filt=("lp", 700, .15, "all")),
+        SNARE=dict(filt=("bp", 2000, .25), ndec=200, click=6, nlev=90),
+        SNARE2=S(None, src="white", nlev=86, nhold=24, ndec=260, filt=("bp", 2400, .2)),
+        CLAP=dict(filt=("bp", 900, .3), nlev=104),
+        CHH=dict(filt=("bp", 4800, .3), hpf=3400, nlev=88), OHH=dict(filt=("bp", 4600, .3), hpf=3200, nlev=86),
+        CRASH=dict(filt=("bp", 3600, .2), nlev=80), RIDE=dict(filt=("bp", 3800, .5), hpf=2600, nlev=76))),
+    ("HYPER", "HYPERPOP", 0, kit(K909,
+        KICK=S("sine", 54, 40, 20, 10, 380, 124, click=90, drive=110),
+        KICK2=S("sine", 45, 14, 50, 60, 1700, 124, click=30, drive=96),                       # the sub 808
+        SNARE=S("tri", 300, 10, 10, 0, 90, 100, 1.6, 60, 60, "white", 122, 6, 180, ("hp", 2000, .3), drive=80),
+        CLAP=dict(nlev=127, ndec=240, hpf=1300),
+        CHH=dict(filt=("hp", 10000, .3), ndec=30), OHH=dict(filt=("hp", 9500, .3)))),
+    ("AMBIENT", "AMBIENT", 0, kit(K808,
+        KICK=S("sine", 48, 8, 40, 10, 900, 104, filt=("lp", 700, .1, "all")),
+        SNARE=dict(filt=("lp", 3500, .2), ndec=420, nlev=70, tlev=60, click=0),
+        CLAP=dict(filt=("bp", 900, .3), ndec=500, nlev=90),
+        CHH=dict(nlev=72, ndec=70, filt=("bp", 7000, .3), hpf=6000), OHH=dict(nlev=72, ndec=900),
+        CRASH=dict(nlev=84, ndec=3500), RIDE=dict(nlev=64, ndec=2500, filt=("bp", 6000, .5)))),
+    ("808", "HIP HOP", 0, K808),
+]
+if os.environ.get("NS_EDITION") == "botanica":
+    KITS = KITS_BOTANICA
+    LEVELS_FILE = Path(__file__).with_name("drumkit_levels_botanica.json")   # (its own: HYPER, AMBIENT differ)
 
 
 def main(path):

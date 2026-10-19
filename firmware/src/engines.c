@@ -16,6 +16,23 @@ static inline int32_t soft_knee(int32_t y, int32_t k)   /* linear up to k, then 
     return y < 0 ? -a : a;
 }
 /* (pitch_inc: felucca_tables.h, SLOOP 2.5: from the top octave) */
+#if EDITION_BOTANICA
+/* BOTANICA: felt piano, droplets, analog, samples, noise and foley, physical models, grains, voices, waves */
+#include "eng_felt.c"           /* FELT: felt piano + string bloom; BOTANICA */
+#include "eng_droplet.c"        /* DROPLET: modal plucks + pitch-jumping echoes; BOTANICA */
+#include "eng_analog.c"
+#include "eng_sample.c"
+#include "eng_noise.c"          /* NOISE: from Felucca 1.0 (SLOOP 2.5), + FOLEY (BOTANICA) */
+#include "eng_phys.c"           /* PHYS: physical models, from Felucca 1.0 (DaisySP, Rings: MIT); SLOOP 2.5 */
+#include "eng_grain.c"          /* GRAIN: granular over the samples; SLOOP 2.5 */
+#include "eng_formant.c"        /* VOICE: formant pads; SLOOP 2.5 */
+#include "eng_wave.c"           /* WAVE: single-cycle waves (built in and your own); NoteSorcery */
+
+typedef union {
+    gr_part_t grain;
+    uint32_t phys[PHYS_ARENA / 4u];      /* eng_phys.c: two SYMP slots or three small ones */
+} eng_arena_t;
+#else
 #include "eng_analog.c"
 #include "eng_sample.c"
 #include "eng_trio.c"
@@ -27,6 +44,7 @@ typedef union {
     fm6_note_t fm6[FM6_POLY];
     bass303_t acid;
 } eng_arena_t;
+#endif
 static eng_arena_t eng_arena[NPART] __attribute__((section(".pool")));
 static uint8_t eng_arena_own[NPART];            /* the engine + 1 whose state is in it, 0 = none */
 #ifdef ARENA_STATS
@@ -54,15 +72,26 @@ static void *eng_arena_of(const track_t *t, uint32_t eng)
 #include "eng_slice.c"
 #endif
 
+#if EDITION_BOTANICA
+static const engine_t *const ENGINES[NENGINES] = {&ENG_FELT, &ENG_DROPLET, &ENG_ANALOG, &ENG_SAMPLE, &ENG_NOISE,
+                                                    &ENG_PHYS, &ENG_GRAIN, &ENG_FORMANT, &ENG_WAVE};
+_Static_assert(ENGI_FELT == 0u && ENGI_DROPLET == 1u && ENGI_ANALOG == 2u && ENGI_SAMPLE == 3u && ENGI_NOISE == 4u &&
+               ENGI_PHYS == 5u && ENGI_GRAIN == 6u && ENGI_FORMANT == 7u && ENGI_WAVE == 8u, "ENGINES[] order");
+#else
 static const engine_t *const ENGINES[NENGINES] = {&ENG_ANALOG, &ENG_TRIO, &ENG_FM6, &ENG_SAMPLE, &ENG_ACID, &ENG_WAVE,
 #if FELUCCA_SLICE
                                                     &ENG_SLICE,
 #endif
 };
+#endif
 
 /* every factory sound as loud as the others: a level trim per preset, 1/2 dB, measured on a phrase
  * that fits the sound (tools/level_presets.py writes preset_trim.h); a track keeps it in P_ED_FX */
+#if EDITION_BOTANICA
+#include "preset_trim_botanica.h"   /* (BOTANICA: its own presets, levelled the same way) */
+#else
 #include "preset_trim.h"
+#endif
 static int16_t preset_trim(uint32_t e, uint32_t pi)
 {
     return e < PT_ENGINES && pi < PT_MAX ? PRESET_TRIM[e][pi] : 0;

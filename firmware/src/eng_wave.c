@@ -145,6 +145,19 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
 /* {WAVA, WAVB, MRPH, SUB, CUT, RES, DRV, SPRD}; waves: 0 SINE 1 TRI 2 SAW 3 SQUARE 4 PULSE25 5 PULSE12 6 ORGAN
  * 7 ORGAN2 8 VOX A 9 VOX O 10 BELL 11 BRASS 12 REED 13 HOLLOW 14 FM 1 15 FM 2 16 SYNC 17 SYNC 2 18 DIGI 19 GLASS
  * 20 CLAVI 21 CHOIR 22 METAL 23 SOFTSAW */
+#if EDITION_BOTANICA
+/* BOTANICA: soft tones. {WAVA, WAVB, MRPH, SUB, CUT, RES, DRV, SPRD} (waves: SINE 0 TRI 1 ... VOX A 8, BELL 10, HOLLOW 13,
+ * GLASS 19, CHOIR 21, SOFTSAW 23) */
+static const preset_t WAVE_PRESETS[] = {
+    {"GLASS PAD", {19, 0, 50, 0, 100, 0, 0, 10}, {70, 90, 118, 90}, 0, 0, FX(0, 50, 20, 70), XP(P_LRATE + 1, 18, P_LD_SHP + 1, 24)},
+    {"CHOIR WAVE", {21, 8, 30, 0, 100, 0, 0, 18}, {80, 90, 120, 90}, 0, 0, FX(0, 60, 20, 70)},
+    {"BELL TONE", {10, 0, 30, 0, 120, 0, 0, 4}, {0, 100, 0, 80}, 0, 0, FX(0, 10, 30, 60)},
+    {"HOLLOW AIR", {13, 1, 60, 0, 80, 10, 0, 20}, {60, 90, 118, 80}, 0, 0, FX(0, 50, 20, 70), XP(P_LRATE + 1, 14, P_LD_SHP + 1, 24)},
+    {"SOFT SAW", {23, 1, 40, 30, 70, 10, 0, 14}, {40, 90, 118, 70}, 0, 0, FX(0, 40, 20, 60)},
+    {"FLUTE TONE", {0, 1, 30, 0, 90, 0, 0, 2}, {14, 70, 110, 40}, 0, 1, FX(0, 10, 24, 50),
+     XP(P_LD_PIT + 1, 1, P_LRATE + 1, 80, P_LFADE + 1, 70)},
+};
+#else
 static const preset_t WAVE_PRESETS[] = {
     {"VOX PAD", {8, 9, 40, 0, 96, 10, 0, 12}, {70, 90, 118, 80}, 0, 0, FX(0, 50, 20, 60), XP(P_LRATE + 1, 20, P_LD_SHP + 1, 30)},
     {"CHOIR WAVE", {21, 8, 30, 0, 100, 0, 0, 18}, {80, 90, 120, 90}, 0, 0, FX(0, 60, 20, 70)},
@@ -159,6 +172,7 @@ static const preset_t WAVE_PRESETS[] = {
     {"WAVE BASS", {23, 2, 30, 60, 60, 30, 30, 0}, {0, 60, 90, 20}, 30, 1, FX(0, 0, 0, 4), XP(P_TRANS + 1, -24)},
     {"ORGAN WAVE", {6, 7, 50, 0, 120, 0, 10, 2}, {0, 127, 127, 20}, 0, 0, FX(0, 40, 0, 30)},
 };
+#endif
 
 static const engine_t ENG_WAVE = {
     "WAVE", {"WAVES", "TONE"},

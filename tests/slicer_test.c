@@ -183,7 +183,7 @@ static void song_setup(void)
     host_tracks_init();
     memset(sl, 0, sizeof sl);
     song.g[G_BPM] = 120;
-    host_preset(t1, 0, 4);
+    host_preset(t1, ENGI_ANALOG, 4);
     host_preset(t2, 1, 5);
     host_preset(t3, 3, 0);
     for (i = 0; i < 16u; i++) {

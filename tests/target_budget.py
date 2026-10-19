@@ -20,6 +20,9 @@ FUNCS = ["analog_render", "sample_render",
          "wave_render", "bass303_render",             # NoteSorcery: WAVE, ACID (X0X's bass303: its sample loop inlined here)
          "d8_render", "d9_render",                    # NoteSorcery: the 808 CM / 909 CM kits (X0X's 8W8, 9W9)
          "fm1_alnk0_irq"]
+if os.environ.get("NS_EDITION") == "botanica":   # BOTANICA's engines (build/botanica/felucca.dis)
+    FUNCS = ["felt_render", "droplet_render", "analog_render", "sample_render", "noise_render", "phys_render",
+             "grain_render", "formant_render", "wave_render", "slicer_track", "drums_mix", "fm1_alnk0_irq"]
 TOL = 0.10                      # exact (no noise): small edits pass, a grown render loop does not
 DIV_W = 8                       # a divide weighs 1 + 8 instructions
 NEST = 4                        # an instruction in a loop inside a loop weighs 4, two deep 16, ...

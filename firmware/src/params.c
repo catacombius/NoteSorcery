@@ -24,13 +24,27 @@ static const char *const N_SYNC[] = {"INT", "USB", "TRS"};   /* G_SYNC: the temp
 static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
+#if EDITION_BOTANICA
+/* BOTANICA: + the petal chords (semitones: seq.c CHORD_SEMI) and two progressions on the white keys (CHORD_PROG) */
+static const char *const N_CHORD[] = {"OFF", "TRIAD", "7TH", "9TH", "SUS4", "POWER", "MAJ7", "MAJ9", "ADD9",
+                                      "6/9", "LYD#11", "ROYAL", "PETAL"};
+static const char *const N_STRDIR[] = {"UP", "DOWN", "RAND"};        /* P_STRDIR */
+static const char *const N_RATMODE[] = {"NORM", "RAMP", "BOUNCE", "RAND"};   /* P_RATMODE (seq.c) */
+static const char *const N_BMODE[] = {"SWELL", "FREEZE", "SMEAR"};   /* G_BMODE (bot_fx.c) */
+#else
 static const char *const N_CHORD[] = {"OFF", "TRIAD", "7TH", "9TH", "SUS4", "POWER"};   /* seq.c CHORD_DEG */
+#endif
 static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "32T", "1/64"};   /* seq.c ROLL_DEN */
+#if EDITION_BOTANICA
+static const char *const N_ENGNAME[] = {"FELT", "DROPLET", "ANALOG", "SAMPLE", "NOISE", "PHYS", "GRAIN", "VOICE", "WAVE"};
+#else
 static const char *const N_ENGNAME[] = {"ANALOG", "TRIO", "FM6", "SAMPLE", "ACID", "WAVE",
 #if FELUCCA_SLICE
                                         "SLICE",
 #endif
 };
+#endif
+_Static_assert(sizeof(N_ENGNAME) / sizeof(N_ENGNAME[0]) == NENGINES, "a name per engine");
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
@@ -87,8 +101,16 @@ static const param_desc_t TP[P_COUNT] = {
     [P_SLDEPTH] = PD("DEPTH", F_PCT, 0, 127, 127),
     [P_CHORD] = PE("CHORD", N_CHORD, 0),
     [P_TFLT] = PD("FILT", F_FILT, -64, 63, 0),
+#if EDITION_BOTANICA
+    [P_STRUM] = PD("STRUM", F_INT, 0, 80, 0),      /* BOTANICA: ms a note, the order is P_STRDIR */
+    [P_VLEAD] = PE("VLEAD", N_ONOFF, 0),
+    [P_STRDIR] = PE("ORDER", N_STRDIR, 0),
+    [P_HUMAN] = PD("HUMAN", F_PCT, 0, 127, 0),     /* velocity +-12 % and a few ms of timing at 127 */
+    [P_RATMODE] = PE("RATCH", N_RATMODE, 0),
+#else
     [P_STRUM] = PD("STRUM", F_INT, -60, 60, 0),   /* ms a note: > 0 low to high (down), < 0 high to low */
     [P_VLEAD] = PE("VLEAD", N_ONOFF, 0),
+#endif
 };
 /* a preset's extra parameters (preset_t.x) into p, each clamped to its range */
 static void preset_extras(int16_t *p, const preset_t *pr)
@@ -137,6 +159,17 @@ static const param_desc_t GP[G_COUNT] = {
     [G_NEWPRJ] = PE("NEW", N_GO, 0),
     [G_GEN] = PE("GEN", N_GO, 0),                  /* NoteSorcery: a 303 line (seq.c gen_tb3po.c) */
     [G_DRDLY] = PD("DLY", F_INT, 0, 127, 0),
+#if EDITION_BOTANICA
+    [G_BLOOM] = PD("BLOOM", F_PCT, 0, 127, 0),     /* PERFORM: warmth, strings, the reverb's swell (bot_fx.c) */
+    [G_DROPS] = PD("DROPS", F_PCT, 0, 127, 0),     /* PERFORM: more droplets and jumps (eng_droplet.c) */
+    [G_FOLEY] = PD("FOLEY", F_PCT, 0, 127, 0),     /* PERFORM: foley hits on the NOISE tracks (bot_seq.c) */
+    [G_GLITCH] = PD("GLTCH", F_PCT, 0, 127, 0),    /* PERFORM: stutters, tape stops, ratchets (bot_seq.c) */
+    [G_WEATHER] = PD("WTHR", F_PCT, 0, 127, 0),    /* SKY: tape wow, hiss and dust, then grit (fx.c) */
+    [G_BREEZE] = PD("BREEZ", F_PCT, 0, 127, 0),    /* SKY: a slow random drift of pitch, tone and delay */
+    [G_DRIFT] = PD("DRIFT", F_INT, 0, 240, 0),     /* SKY: the tempo to drift to, 0 = off (bot_seq.c) */
+    [G_RAMP] = PD("RAMP", F_INT, 0, 16, 4),        /* the drift's length in bars, 0 = at the next bar */
+    [G_BMODE] = PE("BMODE", N_BMODE, 0),
+#endif
 };
 
 static const param_desc_t DRUM_KIT_DESC = PE("KIT", DRUM_KIT_NAMES, 0);
@@ -301,19 +334,37 @@ static const page_t PAGES[] = {
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
     {"REV/CHO", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
+#if EDITION_BOTANICA
+    {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_STRDIR, P_VLEAD}},   /* the chords played, strummed */
+    {"FEEL", FAM_SCL, SC_TRACK, GR_NONE, {P_HUMAN, P_RATMODE, 0xFF, 0xFF}},          /* BOTANICA: humanise, ratchets */
+#else
     {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
+#endif
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"VOICE", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_GLMODE, P_PRIO}},
     {"VOICE 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_PAN, P_MUTE}},
+#if EDITION_BOTANICA
+    /* BOTANICA performance mode: the first GLO pages, four big macros each (the knob colours) */
+    {"PERFORM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BLOOM, G_DROPS, G_FOLEY, G_GLITCH}},
+    {"SKY", FAM_GLO, SC_GLOBAL, GR_NONE, {G_WEATHER, G_BREEZE, G_DRIFT, G_FILT}},
+#endif
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
+#if EDITION_BOTANICA
+    {"MASTER", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BMODE, G_DUCK, G_RAMP, G_ROLL}},   /* (WEATHER is the DUST) */
+#else
     {"MASTER", FAM_GLO, SC_GLOBAL, GR_NONE, {G_DUST, G_DUCK, G_FILT, G_ROLL}},
+#endif
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_MIDI, G_SYNC, G_ROUTE, G_INFO}},
     {"DRUMS", FAM_GLO, SC_GLOBAL, GR_NONE, {G_DRCH, G_DRLVL, G_DRREV, G_DRDLY}},   /* GM kit on MIDI ch 10 */
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
     {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},
+#if EDITION_BOTANICA
+    {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_NONE, {G_CLRSEQ, G_INITSND, 0xFF, G_NEWPRJ}},
+#else
     {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_NONE, {G_CLRSEQ, G_INITSND, G_GEN, G_NEWPRJ}},
+#endif
     {"ARP", FAM_ARP, SC_TRACK, GR_ARP, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},
     {"ARP 2", FAM_ARP, SC_TRACK, GR_NONE, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},
     {"STEP", FAM_SEQ, SC_STEP, GR_ROLL, {0, 1, 2, 3}},

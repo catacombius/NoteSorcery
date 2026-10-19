@@ -262,7 +262,7 @@ static void job_song(const job_t *j)
     (void)j;
     host_tracks_init();
     song.g[G_BPM] = 120;
-    host_preset(t1, 0, 4);
+    host_preset(t1, ENGI_ANALOG, 4);
     host_preset(t2, 1, 5);
     host_preset(t3, 3, 0);
     for (i = 0; i < 16u; i++) {
@@ -624,7 +624,7 @@ static int chk_keep(char *msg, uint32_t n, uint32_t mode)
     static const char *const MN[4] = {"POLY", "MONO", "LEGATO", "UNISON"};
     uint32_t k, lost = 0, kills0 = voice_kills;
     host_tracks_init();
-    host_preset(&trk[0], 0, 0);
+    host_preset(&trk[0], ENGI_ANALOG, 0);
     trk[0].p[P_VOICE] = (int16_t)mode;
     trk[0].p[P_AMODE] = 0;
     trk[0].p[P_SUS] = 100;

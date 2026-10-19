@@ -90,6 +90,26 @@ static void analog_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, cons
     v->s[2] = nst;
 }
 
+#if EDITION_BOTANICA
+/* BOTANICA: the roots (warm round basses), the canopy (pads) and the hyperpop leads. {WAVE, DTN, MIX, NOIS, CUT, RES, DRV,
+ * KTR}, {A D S R}, fenv, mono */
+static const preset_t ANALOG_PRESETS[] = {
+    {"SOFT SUB", {3, 0, 0, 0, 127, 0, 14, 0}, {0, 60, 118, 30}, 0, 1, FX(0, 0, 0, 0), XP(P_GLIDE + 1, 36, P_TRANS + 1, -24)},
+    {"FRETLESS", {2, 0, 0, 0, 80, 10, 20, 40}, {2, 80, 100, 40}, 10, 1, FX(0, 10, 0, 10),
+     XP(P_GLIDE + 1, 50, P_GLMODE + 1, 1, P_TRANS + 1, -24, P_LD_PIT + 1, 1)},
+    {"WARM ROOT", {2, 6, 50, 0, 64, 6, 30, 32}, {0, 70, 100, 30}, 16, 1, FX(0, 0, 0, 6), XP(P_GLIDE + 1, 30, P_TRANS + 1, -24)},
+    {"CANOPY PAD", {4, 12, 64, 6, 52, 8, 0, 32}, {75, 90, 115, 90}, 0, 0, FX(0, 55, 20, 65), XP(P_LRATE + 1, 30, P_LD_SHP + 1, 20)},
+    {"MOSS STRINGS", {0, 18, 64, 0, 48, 6, 0, 32}, {70, 90, 118, 90}, 0, 0, FX(0, 50, 18, 70)},
+    {"DAWN PAD", {4, 25, 64, 20, 60, 15, 0, 32}, {90, 100, 120, 100}, 0, 0, FX(0, 60, 30, 80), XP(P_LRATE + 1, 18, P_LD_PIT + 1, 1)},
+    {"SINE PAD", {3, 10, 64, 4, 90, 0, 0, 32}, {80, 90, 118, 90}, 0, 0, FX(0, 60, 20, 70)},
+    {"GLIDE LEAD", {2, 0, 0, 0, 92, 0, 10, 64}, {6, 70, 112, 46}, 0, 1, FX(0, 0, 28, 40),
+     XP(P_GLIDE + 1, 74, P_LD_PIT + 1, 2, P_LRATE + 1, 89, P_LFADE + 1, 50)},
+    {"SUPERSAW", {0, 14, 64, 0, 96, 12, 10, 64}, {4, 70, 112, 46}, 10, 1, FX(0, 20, 30, 36), XP(P_VOICE + 1, 3, P_DETUNE + 1, 64, P_GLIDE + 1, 30)},
+    {"PETAL PLUCK", {0, 8, 64, 0, 56, 30, 16, 64}, {0, 70, 20, 40}, 46, 0, FX(0, 15, 34, 40)},
+    {"HYPER LEAD", {0, 14, 64, 0, 100, 12, 24, 64}, {2, 70, 112, 36}, 10, 1, FX(10, 20, 30, 40),
+     XP(P_VOICE + 1, 3, P_DETUNE + 1, 70, P_GLIDE + 1, 24)},
+};
+#else
 static const preset_t ANALOG_PRESETS[] = {
     /* SLOOP hip-hop / drum & bass bank. {WAVE, DTN, MIX, NOIS, CUT, RES, DRV, KTR}, {A D S R}, fenv, mono */
     /* 808s: a sine that decays (SUS 0) with a little pitch drop (ENV -> PITCH) and slides (GLIDE, legato) */
@@ -125,6 +145,7 @@ static const preset_t ANALOG_PRESETS[] = {
     {"SAW BASS", {0, 6, 64, 0, 52, 30, 40, 64}, {0, 60, 60, 20}, 30, 1, FX(8, 0, 0, 4), XP(P_TRANS + 1, -24)},
     {"SINE PAD", {3, 10, 64, 4, 90, 0, 0, 32}, {80, 90, 118, 90}, 0, 0, FX(0, 60, 20, 65)},
 };
+#endif
 
 static const engine_t ENG_ANALOG = {
     "ANALOG", {"OSC", "FLT"},

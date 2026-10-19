@@ -32,6 +32,18 @@ typedef struct {
     uint16_t c[5];
 } palette_t;
 #define DARK RGB(0, 0, 0), RGB(255, 255, 255)
+#if EDITION_BOTANICA
+/* BOTANICA: MOSS (the default: a deep green ground, cream type, petal pink values), PETAL (light: cream paper, plum
+ * ink), DUSK (violet evening, peach values), and NoteSorcery's PAPER, CONTRAST and MONO */
+static const palette_t PALETTES[] = {
+    {"MOSS", RGB(10, 26, 18), RGB(244, 238, 222), {RGB(28, 58, 40), RGB(52, 96, 66), RGB(108, 150, 112), RGB(196, 214, 170), RGB(250, 196, 210)}},
+    {"PETAL", RGB(246, 238, 232), RGB(40, 28, 36), {RGB(226, 208, 206), RGB(196, 168, 170), RGB(140, 110, 118), RGB(96, 70, 80), RGB(30, 24, 28)}},
+    {"DUSK", RGB(24, 18, 40), RGB(255, 236, 214), {RGB(48, 38, 74), RGB(84, 68, 118), RGB(140, 120, 176), RGB(214, 170, 200), RGB(255, 196, 140)}},
+    {"PAPER", RGB(236, 232, 222), RGB(0, 0, 0), {RGB(204, 198, 186), RGB(158, 152, 140), RGB(108, 104, 96), RGB(64, 60, 54), RGB(18, 18, 16)}},
+    {"CONTRAST", DARK, {RGB(90, 90, 90), RGB(150, 150, 150), RGB(210, 210, 210), RGB(255, 236, 64), RGB(255, 255, 255)}},
+    {"MONO", DARK, {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
+};
+#else
 static const palette_t PALETTES[] = {
     {"GREEN", DARK, {RGB(0, 40, 12), RGB(0, 84, 30), RGB(16, 140, 54), RGB(56, 200, 92), RGB(120, 255, 146)}},
     {"AMBER", DARK, {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
@@ -43,6 +55,7 @@ static const palette_t PALETTES[] = {
     {"PAPER", RGB(236, 232, 222), RGB(0, 0, 0), {RGB(204, 198, 186), RGB(158, 152, 140), RGB(108, 104, 96), RGB(64, 60, 54), RGB(18, 18, 16)}},
     {"CONTRAST", DARK, {RGB(90, 90, 90), RGB(150, 150, 150), RGB(210, 210, 210), RGB(255, 236, 64), RGB(255, 255, 255)}},
 };
+#endif
 #undef DARK
 #define NPALETTES (sizeof(PALETTES) / sizeof(PALETTES[0]))
 static uint16_t pal[5];

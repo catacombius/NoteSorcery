@@ -27,6 +27,21 @@ const py = (code, ...args) => execFileSync(PYTHON, ["-c", code, ...args], { maxB
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 
 /* ------------------------------------------------------------ editor protocol --- */
+/* a firmware source as the NoteSorcery build sees it: BOTANICA's blocks (#if EDITION_BOTANICA ... #else / #endif) left
+ * out, their #else kept (the edition's other code is not the web editor's) */
+function fwsrc(name) {
+  const out = [], stack = [];
+  for (const line of readFileSync(join(HERE, "../firmware/src/" + name), "utf8").split("\n")) {
+    const t = line.trim();
+    if (/^#if\s+EDITION_BOTANICA\b/.test(t)) { stack.push({ bot: true, skip: true }); continue; }
+    if (/^#if/.test(t)) { stack.push({ bot: false }); if (!stack.some(f => f.bot && f.skip)) out.push(line); continue; }
+    const top = stack[stack.length - 1];
+    if (/^#else/.test(t) && top && top.bot) { top.skip = !top.skip; continue; }
+    if (/^#endif/.test(t) && top) { stack.pop(); if (!top.bot && !stack.some(f => f.bot && f.skip)) out.push(line); continue; }
+    if (!stack.some(f => f.bot && f.skip)) out.push(line);
+  }
+  return out.join("\n");
+}
 const html = readFileSync(join(HERE, "editor.html"), "utf8");
 const proto = html.slice(html.indexOf("/*PROTO-BEGIN*/"), html.indexOf("/*PROTO-END*/"));
 const E = vm.runInNewContext(proto + `
@@ -52,7 +67,7 @@ async function editorMock() {
   {
     /* the SLICER (core.h P_SLCR..P_SLDEPTH = 45..48, just before P_E0): the mock as params.c has it,
        and a factory preset turns it off as ui.c apply_preset_to does */
-    const pc = readFileSync(join(HERE, "../firmware/src/params.c"), "utf8");
+    const pc = fwsrc("params.c");
     const sd = [];
     for (let i = 45; i < 49; i++) sd.push(E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))));
     ok(sd.map((d) => d.label).join() === "SLCR,PAT,RATE,DEPTH" && sd[0].names.join() === "OFF,GATE,STUT"
@@ -523,7 +538,7 @@ async function editorBackup() {
   const { rq, done } = attachMock({});
   const info = E.parse[C.INFO](await rq(E.req.info()));
   ok(info.proto >= 6, "backup: INFO protocol v6 or later");
-  const ec = readFileSync(join(HERE, "../firmware/src/editor.c"), "utf8");
+  const ec = fwsrc("editor.c");
   ok(/ED_BK_IDS\[\] = \{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 32, 33, 34, 35\}/.test(ec), "backup: the object ids == editor.c ED_BK_IDS (35: USR4, 9: SYN kits)");
   await rq(E.req.upStore(3, "BACKUP ME"));
   await rq(E.req.project(1, 2), { timeout: 4000, retries: 0 });
@@ -562,7 +577,7 @@ async function editorV5() {
   const info = E.parse[C.INFO](await rq(E.req.info()));
   ok(info.proto === 10 && /SLOOP/.test(info.version) && info.pcount === 61 && info.gcount === 33 && info.pe0 === 53, "v5..v10: INFO ends with the protocol version (10: SYN kits); 33 globals (2.5: drum DLY)");
   /* the firmware says the same: ED_DRUM_STEP is command 33, INFO sends 5, P_CHORD / the master globals as the mock has them */
-  const ec = readFileSync(join(HERE, "../firmware/src/editor.c"), "utf8"), pc = readFileSync(join(HERE, "../firmware/src/params.c"), "utf8");
+  const ec = fwsrc("editor.c"), pc = fwsrc("params.c");
   const en = (/enum \{ ED_INFO = 1,([^}]*)\}/.exec(ec) || [])[1] || "";
   const names = ["ED_INFO", ...en.replace(/\/\*[^*]*\*\//g, "").split(",").map((x) => x.trim()).filter(Boolean)];
   ok(names.indexOf("ED_DRUM_STEP") + 1 === C.DRUM_STEP && names.indexOf("ED_TRACK_CHANGED") + 1 === C.TRACK_CHANGED
@@ -572,9 +587,9 @@ async function editorV5() {
     && names.indexOf("ED_FILL_GET") + 1 === C.FILL_GET && names.indexOf("ED_FILL_SET") + 1 === C.FILL_SET
     && /ED_FM6_GET = 68, ED_FM6_PUT, ED_FM6_LIST, ED_FM6_ERASE/.test(ec) && C.FM6_GET === 68 && C.FM6_ERASE === 71
     && /#define ED_PROTO 11u/.test(ec) && /ed_b\(ED_PROTO\);/.test(ec)
-    && /enum \{ ED_NSX_CAPS = 80, ED_NSX_TRANSPORT, ED_NSX_TEMPO \};/.test(readFileSync(join(HERE, "../firmware/src/editor_nsx.c"), "utf8"))
+    && /enum \{ ED_NSX_CAPS = 80, ED_NSX_TRANSPORT, ED_NSX_TEMPO \};/.test(fwsrc("editor_nsx.c"))
     && C.NSX_CAPS === 80 && C.NSX_TEMPO === 82
-    && /enum \{ ED_DSYN_LIST = 72, ED_DSYN_GET, ED_DSYN_PUT, ED_DSYN_STORE, ED_DSYN_PLAY \};/.test(readFileSync(join(HERE, "../firmware/src/editor_dsyn.c"), "utf8"))
+    && /enum \{ ED_DSYN_LIST = 72, ED_DSYN_GET, ED_DSYN_PUT, ED_DSYN_STORE, ED_DSYN_PLAY \};/.test(fwsrc("editor_dsyn.c"))
     && C.DSYN_LIST === 72 && C.DSYN_PLAY === 76, "v5..v11: command numbers and INFO == editor.c / editor_dsyn.c / editor_nsx.c (NoteSorcery: v11)");
   const enumNames = (id) => (new RegExp(`${id}\\[\\] = \\{([^}]*)\\}`).exec(pc) || [])[1].split(",").map((x) => x.trim().replace(/"/g, ""));
   const chord = E.parse[C.DESC](await rq(E.req.desc(0, 49)));
@@ -611,7 +626,7 @@ async function editorV5() {
     "v5: the drum track through TRACK_STEP: lanes <-> GM notes");
   ok(E.DRUM_LANES.length === 16 && E.DRUM_LANES[0][0] === 36 && E.DRUM_LANES[15][0] === 56 && E.LV_NAMES.join() === "NORM,GHOST,SOFT,HARD",
     "v5: the 16 lanes (kick .. cowbell), 4 levels");
-  const dc = readFileSync(join(HERE, "../firmware/src/drums.c"), "utf8");
+  const dc = fwsrc("drums.c");
   const lanes = ((/LANE_NOTE\[DRUM_LANES\] = \{([^}]*)\}/.exec(dc) || [])[1] || "").split(",").map((x) => +x);
   ok(lanes.join() === E.DRUM_LANES.map((x) => x[0]).join(), "v5: lane notes == drums.c LANE_NOTE");
   /* the kit: the drum track's P_E0 */
@@ -645,7 +660,7 @@ async function editorV7() {
   const info = E.parse[C.INFO](await rq(E.req.info()));
   ok(info.proto === 10, "v7: INFO ends with 10 (v10 includes v7)");
   /* the lockable set == seq.c p_lockable (the ids as core.h names them) */
-  const sc = readFileSync(join(HERE, "../firmware/src/seq.c"), "utf8"), ch = readFileSync(join(HERE, "../firmware/src/core.h"), "utf8");
+  const sc = fwsrc("seq.c"), ch = fwsrc("core.h");
   const ids = {}; let n = 0;
   for (const nm of (/enum \{\s*\/\* per-track parameters \*\/([^}]*)\}/.exec(ch) || [])[1].replace(/\/\*[\s\S]*?\*\//g, "").split(",").map((x) => x.trim()).filter(Boolean)) ids[nm] = n++;
   const lockableC = (id) => id <= ids.P_LD_AMP || id === ids.P_SGATE || (id >= ids.P_DIST && id <= ids.P_REV) || id === ids.P_GLIDE || id === ids.P_PAN
@@ -708,7 +723,7 @@ async function editorV8() {
   const info = E.parse[C.INFO](await rq(E.req.info()));
   ok(info.proto === 10, "v8: INFO ends with 10 (v10 includes v8)");
   /* the condition codes == core.h FC_*; the bit layout of a 2-bit step field */
-  const ch = readFileSync(join(HERE, "../firmware/src/core.h"), "utf8"), sc = readFileSync(join(HERE, "../firmware/src/seq.c"), "utf8");
+  const ch = fwsrc("core.h"), sc = fwsrc("seq.c");
   ok(/enum \{ FC_NORM, FC_FILL, FC_NOFILL \}/.test(ch) && /uint8_t fill\[NSTEP \/ 4\];/.test(ch)
     && /t->fill\[idx \/ 4u\] >> \(2u \* \(idx % 4u\)\)\) & 3u/.test(sc) && E.FC.FILL === 1 && E.FC.NOFILL === 2,
     "v8: FC codes and the 2-bit layout == core.h / seq.c step_fill");
@@ -874,7 +889,7 @@ sys.stdout.buffer.write(hd+t1+b'MTrk'+struct.pack('>I',len(tr))+tr)`);
   ok(dn.map((n) => n.key).join() === "36,42,38,56" && dp.len === 7 && [0, 4, 6].every((i) => dp.dsteps[i].on === ds[i].on && js(dp.dsteps[i].lvl) === js(ds[i].lvl))
     && SMF.laneOf(36) === 0 && SMF.laneOf(35) === 1 && SMF.laneOf(57) === 11 && SMF.laneOf(20) === 0 && SMF.laneOf(90) === 13,
     "midi: the drum track: lanes as GM notes and back, levels ghost..hard kept (drums.c LANE_OF_GM)");
-  const dc = readFileSync(join(HERE, "../firmware/src/drums.c"), "utf8");
+  const dc = fwsrc("drums.c");
   const tbl = (/LANE_OF_GM\[81 - 35 \+ 1\] = \{([^}]*)\}/.exec(dc) || [, ""])[1].replace(/\/\*[^*]*\*\//g, "").split(",").map((x) => +x.trim());
   ok(js(tbl) === js(SMF.LANE_OF_GM), "midi: LANE_OF_GM == drums.c");
   /* the song order */
@@ -888,7 +903,7 @@ sys.stdout.buffer.write(hd+t1+b'MTrk'+struct.pack('>I',len(tr))+tr)`);
     "song: encode keeps the rest of the settings");
   ok(!ARR.valid({ entries: [] }) && !ARR.valid({ entries: Array(17).fill({ scene: 0, bars: 1 }) }) && !ARR.valid({ entries: [{ scene: 4, bars: 1 }] })
     && !ARR.valid({ entries: [{ scene: 0, bars: 65 }] }) && ARR.valid({ entries: Array(16).fill({ scene: 3, bars: 64 }) }), "song: valid == arranger.h arr_valid (1..16 entries, A..D, 1..64 bars)");
-  const pc = readFileSync(join(HERE, "../firmware/src/project.c"), "utf8"), ah = readFileSync(join(HERE, "../firmware/src/arranger.h"), "utf8");
+  const pc = fwsrc("project.c"), ah = fwsrc("arranger.h");
   const pt = (/typedef struct \{([^}]*)\} persist_t;/.exec(pc) || [, ""])[1];
   ok(/PERSIST_MAGIC 0x50455233u/.test(pc) && /arr_config_t arrangement;/.test(pt) && /ARR_STEPS 16u/.test(ah)
     && /if \(\(song\.playing \|\| transport_req\) && memcmp\(&p\.arrangement, &arrangement, sizeof arrangement\)\)\s*return 3;/.test(pc),
@@ -922,7 +937,7 @@ sys.stdout.buffer.write(hd+t1+b'MTrk'+struct.pack('>I',len(tr))+tr)`);
 /* ------------------------------------- SLOOP 2.5: the DRUM SYNTH page (v10) --- */
 async function editorDsyn() {
   const { DSYN } = E, C = E.CMD;
-  const dsc = readFileSync(join(HERE, "../firmware/src/drum_synth.c"), "utf8");
+  const dsc = fwsrc("drum_synth.c");
   const st = (/typedef struct \{([\s\S]*?)\} dsnd_t;/.exec(dsc) || [, ""])[1].replace(/\/\*[\s\S]*?\*\//g, "");
   const fields = [...st.matchAll(/(?:u?int8_t)\s+([^;]+);/g)].flatMap((m) => m[1].split(",").map((x) => x.trim()));
   ok(js(fields) === js(DSYN.FIELDS) && DSYN.SIZE === 22, "dsyn: the 22 fields in dsnd_t's order (drum_synth.c)");
@@ -1006,7 +1021,7 @@ async function editorDsyn() {
 /* ------------------------------------------- 2.5: a DX7 cartridge into the bank --- */
 async function editorCart() {
   const C = E.CMD, F = E.FM6;
-  const fc = readFileSync(join(HERE, "../firmware/src/fm6_bank.c"), "utf8");
+  const fc = fwsrc("fm6_bank.c");
   const voices = Array.from({ length: 32 }, (_, k) => { const v = F.factory(k % F.FACTORY_PK.length); F.setName(v, `CART ${k + 1}`); return v; });
   const pb = F.parseSysex(F.bankSysex(voices));
   const slots = new Array(27).fill(null); slots[0] = F.pack(voices[0]); slots[26] = F.pack(voices[5]);
@@ -1098,7 +1113,7 @@ function editorTabs() {
     const hex = [...css.matchAll(/#[0-9a-f]{3,6}\b/gi)].map((m) => m[0].toLowerCase()).filter((c) => c !== "#000");
     ok(!hex.length && /--t1: #287cff; --t2: #1ecc70; --t3: #ffc618; --t4: #ff621a;/.test(html),
       "editor: the track colours of the device (ui_studio.c TE_COL), colours only as tokens" + (hex.length ? ` (${hex.join(" ")})` : ""));
-    const te = readFileSync(join(HERE, "../firmware/src/ui_studio.c"), "utf8");
+    const te = fwsrc("ui_studio.c");
     ok(/TE_COL0\[4\] = \{RGB\(40, 124, 255\), RGB\(30, 204, 112\), RGB\(255, 198, 24\), RGB\(255, 98, 26\)\}/.test(te),
       "editor: ... the same four as the firmware's TE_COL");
     ok(/SLOOP-FONT\*\/url\(data:font\/ttf;base64,[A-Za-z0-9+\/=]{20000,}\)/.test(html), "editor: the device's Terminus font inlined (tools/gen_webfont.py)");

@@ -18,6 +18,27 @@ enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #ifndef FELUCCA_SLICE
 #define FELUCCA_SLICE 0          /* the SLICE engine (eng_slice.c): kept in the tree, not built by default */
 #endif
+/* BOTANICA (build.py --edition botanica): another firmware on the same platform, its own engines, presets, kits,
+ * theme and stores (projects "BTP1"). The NoteSorcery build (0) is unchanged by it. */
+#ifndef EDITION_BOTANICA
+#define EDITION_BOTANICA 0
+#endif
+#if EDITION_BOTANICA
+/* BOTANICA: its own engine table (a project stores the index as a byte: append, never reorder) */
+#define ENGI_FELT 0u             /* felt piano + string bloom (eng_felt.c) */
+#define ENGI_DROPLET 1u          /* modal plucks + pitch-jumping echoes (eng_droplet.c) */
+#define ENGI_ANALOG 2u
+#define ENGI_SAMPLE 3u
+#define ENGI_NOISE 4u            /* noise beds and FOLEY (eng_noise.c, SLOOP 2.5 + BOTANICA) */
+#define ENGI_PHYS 5u             /* physical models (eng_phys.c, SLOOP 2.5) */
+#define ENGI_GRAIN 6u            /* granular over the samples (eng_grain.c, SLOOP 2.5) */
+#define ENGI_FORMANT 7u          /* VOICE: formant pads (eng_formant.c, SLOOP 2.5) */
+#define ENGI_WAVE 8u
+#define NENGINES_CORE 9u
+#if FELUCCA_SLICE
+#error "BOTANICA has no SLICE engine"
+#endif
+#else
 /* NoteSorcery: the engine table was renumbered (projects are format NSP1, older ones are not read): ANALOG, TRIO,
  * FM6, SAMPLE, then the engines NoteSorcery adds; SLICE, when built, comes last. The engine index is stored as a
  * byte in projects and user presets: append new engines, never reorder (engines.c ENGINES[], params.c N_ENGNAME) */
@@ -28,6 +49,8 @@ enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #define ENGI_ACID 4u             /* NoteSorcery: a TB-303 (eng_acid.c, X0X's Open303) */
 #define ENGI_WAVE 5u             /* NoteSorcery: single-cycle waves (eng_wave.c) */
 #define NENGINES_CORE 6u         /* the engines every build has */
+#endif
+#define HAVE_FM6 (!EDITION_BOTANICA)   /* the FM6 engine, its patch bank and its editor commands */
 #define NENGINES (NENGINES_CORE + FELUCCA_SLICE)
 #define ENGI_SLICE NENGINES_CORE /* with FELUCCA_SLICE: after the others */
 #define UP_SLOTS 32u             /* user presets (upreset.c) */
@@ -69,6 +92,11 @@ enum {                          /* per-track parameters */
     P_TFLT,                                    /* SLOOP 2.4: the track's filter, < 0 low-pass, > 0 high-pass (fx.c) */
     P_STRUM,                                   /* SLOOP 2.4: a chord's notes one after the other, ms each (> 0 down, < 0 up) */
     P_VLEAD,                                   /* SLOOP 2.4: chord mode, each chord voiced nearest the last (seq.c) */
+#if EDITION_BOTANICA
+    P_STRDIR,                                  /* BOTANICA: the strum's order, UP DOWN RANDOM (seq.c) */
+    P_HUMAN,                                   /* BOTANICA: velocity and timing humanised (seq.c) */
+    P_RATMODE,                                 /* BOTANICA: ratchet shape, NORMAL RAMP BOUNCE RANDOM (seq.c) */
+#endif
     P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7,
     P_COUNT
 };
@@ -87,6 +115,11 @@ enum {                          /* global parameters */
     G_NEWPRJ,                   /* TOOLS > NEW: a new project (GO) */
     G_DRDLY,                    /* SLOOP 2.5: the drums' delay send (GLO > DRUMS) */
     G_GEN,                      /* NoteSorcery: TOOLS > GEN, a 303 line on the selected synth track (GO) */
+#if EDITION_BOTANICA
+    G_BLOOM, G_DROPS, G_FOLEY, G_GLITCH,   /* BOTANICA PERFORM: warmth + swell, droplets, foley, glitch (bot_fx.c) */
+    G_WEATHER, G_BREEZE, G_DRIFT, G_RAMP,  /* BOTANICA SKY: tape + dust, random walk, target tempo, its ramp */
+    G_BMODE,                    /* BOTANICA: what BLOOM does to the reverb, SWELL FREEZE SMEAR */
+#endif
     G_COUNT
 };
 
@@ -338,9 +371,18 @@ static track_t *tdrum(void)
 static int is_drum(const track_t *t) { return (uint32_t)(t - trk) >= TRK_DRUM; }
 static uint32_t drum_no(const track_t *t) { return (uint32_t)(t - trk - TRK_DRUM) % NDRUMTRK; }   /* 0, 1 */
 /* silent: MUTE, or another track is soloed */
+#if EDITION_BOTANICA
+/* BOTANICA BREAK (GLO + C#4 held, bot_seq.c): 1 the break (every track but the selected one silent, the reverb
+ * frozen), 2 let go: the drop comes on the next bar */
+static volatile uint8_t bot_brk;
+#endif
 static int trk_silent(const track_t *t)
 {
     uint32_t i = (uint32_t)(t - trk);
+#if EDITION_BOTANICA
+    if (bot_brk && i != song.sel)
+        return 1;
+#endif
     return t->p[P_MUTE] || (song.solo && !((song.solo >> i) & 1u));
 }
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")   /* slot store before the index update */

@@ -11,6 +11,9 @@
  * over one block (stage 4: the envelope goes to 0, the block's amplitude ramp
  * declicks it); one of the part's own is restarted in place. Extra UNISON
  * voices only start when there is room. The drum track has its own voices (drums.c). */
+#if EDITION_BOTANICA
+#include "bot_fx.c"                                     /* BLOOM, WEATHER, BREEZE (BOTANICA) */
+#endif
 static uint32_t vage;                                   /* voice ages: one clock for every part */
 /* engines that play recorded material (a position, not a phase): no phases kept or spread */
 #if FELUCCA_SLICE
@@ -50,7 +53,11 @@ static void track_lfo_tick(track_t *t)
 /* voices the engine may use (POLY and UNISON): its cap, else all of them */
 static uint32_t trk_nvoice(const track_t *t)
 {
+#if EDITION_BOTANICA
+    uint32_t c = ENGINES[t->engine] == &ENG_PHYS ? phys_poly(t) : ENGINES[t->engine]->poly;   /* (PHYS: by MODEL) */
+#else
     uint32_t c = ENGINES[t->engine]->poly;
+#endif
     return c && c < NPOLY ? c : NPOLY;
 }
 
@@ -182,8 +189,13 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
     uint32_t i, np = trk_nvoice(t), best = np, low = np, nfree = 0;
     int32_t bd = 0x7FFFFFFF;
     for (i = 0; i < np; i++) {
+#if EDITION_BOTANICA
+        if (t->v[i].active && t->v[i].note == note && t->v[i].stage != 4u)   /* (not one given up to another part: */
+            return &t->v[i];                                                  /* restarted, it would pass the budget) */
+#else
         if (t->v[i].active && t->v[i].note == note)
             return &t->v[i];
+#endif
         nfree += !t->v[i].active;
     }
     if (nfree && voices_busy() >= NVOICE) {
@@ -264,6 +276,9 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     int sounding = v->active && v->stage != 0;
     uint32_t ph0 = v->ph[0], ph1 = v->ph[1], ph2 = v->ph[2];
     int32_t s0 = v->s[0], s1 = v->s[1], s4 = v->s[4];
+#if EDITION_BOTANICA
+    int32_t s5 = v->s[5], s6 = v->s[6], s7 = v->s[7];
+#endif
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
     v->gate = 1;
@@ -285,11 +300,23 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
         if (e == &ENG_ANALOG) {
             v->s[0] = s0;
             v->s[1] = s1;
-        } else if (e == &ENG_TRIO) {
+        }
+#if EDITION_BOTANICA
+        else if (e == &ENG_NOISE && t->p[P_E0] != NZ_FOLEY) {
+            v->s[0] = s0;                               /* the filter and the colour poles (2.5) */
+            v->s[1] = s1;
+            v->s[4] = s4;
+            v->s[5] = s5;
+            v->s[6] = s6;
+            v->s[7] = s7;
+        }
+#else
+        else if (e == &ENG_TRIO) {
             v->s[0] = s0;                               /* filter */
             v->s[1] = s1;
             v->s[4] = s4;                               /* the sample waiting for its step corrections */
         }
+#endif
     }
 }
 
@@ -467,6 +494,9 @@ static void trk_all_off(track_t *t)
 {
     uint32_t i;
     strum_cancel(t, 0, 1);
+#if EDITION_BOTANICA
+    drop_cancel(t);                                     /* (DROPLET: its echoes still to come) */
+#endif
     for (i = 0; i < NVOICE; i++) {
         t->v[i].gate = 0;
         t->v[i].stage = t->v[i].active ? 3 : 0;
@@ -477,6 +507,45 @@ static void trk_all_off(track_t *t)
 }
 
 /* note i of a chord of n (notes[]): at once, or strummed (rank: its place from the lowest, or the highest) */
+#if EDITION_BOTANICA
+static void trk_note_chord(track_t *t, const uint8_t *notes, uint32_t n, uint32_t i, uint32_t vel)
+{
+    int32_t s = t->p[P_STRUM];
+    uint32_t rank = 0, j, q, late = 0;
+#if EDITION_BOTANICA
+    /* BOTANICA: STRUM is 0..80 ms a note, ORDER its direction (UP from the lowest, DOWN from the highest, RAND); HUMAN
+     * moves each note's velocity (+-12 % at 127) and its time (up to 10 ms late), as a hand on felt keys */
+    static int32_t hum_rng = 0x6C8E9CF5;
+    if (t->p[P_HUMAN] && !is_drum(t)) {
+        uint32_t r = noise32(&hum_rng), h = (uint32_t)t->p[P_HUMAN];
+        int32_t dv = (int32_t)vel * ((int32_t)(r & 255u) - 128) * (int32_t)h * 12 / (128 * 127 * 100);
+        vel = (uint32_t)clamp((int32_t)vel + dv, 1, 127);
+        late = ((r >> 8) & 255u) * h * (FS / 100u) / (255u * 127u);   /* 0 .. 10 ms */
+    }
+    if (t->p[P_STRDIR] == 1)
+        s = -s;                                         /* DOWN: from the highest */
+#endif
+    if ((!s || n < 2u || is_drum(t)) && !late) {
+        trk_note_on(t, notes[i], vel);
+        return;
+    }
+    if (s && n >= 2u) {
+        for (j = 0; j < n; j++)                         /* its place: lowest first (down), highest first (up) */
+            if (j != i && (s > 0 ? notes[j] < notes[i] || (notes[j] == notes[i] && j < i)
+                                 : notes[j] > notes[i] || (notes[j] == notes[i] && j < i)))
+                rank++;
+#if EDITION_BOTANICA
+        if (t->p[P_STRDIR] == 2) {                      /* RAND: a new order each chord */
+            static int32_t ord_rng = 0x2F6B1D35;
+            rank = (rank + (noise32(&ord_rng) >> 8)) % n;
+        }
+#endif
+    }
+    if (!rank && !late) {
+        trk_note_on(t, notes[i], vel);
+        return;
+    }
+#else
 static void trk_note_chord(track_t *t, const uint8_t *notes, uint32_t n, uint32_t i, uint32_t vel)
 {
     int32_t s = t->p[P_STRUM];
@@ -493,6 +562,7 @@ static void trk_note_chord(track_t *t, const uint8_t *notes, uint32_t n, uint32_
         trk_note_on(t, notes[i], vel);
         return;
     }
+#endif
     strum_cancel(t, notes[i], 0);
     for (q = 0; q < STQ && stq[q].on; q++)
         ;
@@ -503,7 +573,11 @@ static void trk_note_chord(track_t *t, const uint8_t *notes, uint32_t n, uint32_
     stq[q].trk = (uint8_t)(t - trk);
     stq[q].note = (uint8_t)notes[i];
     stq[q].vel = (uint8_t)vel;
+#if EDITION_BOTANICA
+    stq[q].left = rank * (uint32_t)(s < 0 ? -s : s) * (uint32_t)FS / 1000u + late;
+#else
     stq[q].left = rank * (uint32_t)(s < 0 ? -s : s) * (uint32_t)FS / 1000u;
+#endif
     stq[q].on = 1;
 }
 /* each audio block: the strummed notes due */
@@ -677,6 +751,9 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
         {   /* the pitch in 1/4096 semitone: glide, LFO, the pitch envelope; the fraction goes into the increment */
             int32_t q = (v->pitch_cur << 8) + v->pitch_frac + ((lfo * p[P_LD_PIT] * 3) >> 7) +
                         ((v->penv * p[P_ED_PIT] * 3) >> 7);
+#if EDITION_BOTANICA
+            q += bot_pitch(t);                          /* WEATHER's wow, the track's BREEZE */
+#endif
             pitch = (q >> 8) + tune;
             m.pitch16 = clamp(pitch, 0, 2047);
             m.inc = pitch_inc(m.pitch16);
@@ -686,6 +763,9 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
                 m.inc += (uint32_t)((int32_t)(m.inc >> 12) * m.fine);
         }
         m.cutoff = ((lfo * p[P_LD_FLT]) >> 7) + ((m.envq15 * p[P_ED_FLT]) >> 7);
+#if EDITION_BOTANICA
+        m.cutoff += bot_cutoff(t);                      /* BREEZE */
+#endif
         if (v->vel > 110)                               /* accent opens the filter with the env */
             m.cutoff += (m.envq15 * 24) >> 7;
         m.shape = (64 << 8) + ((lfo * p[P_LD_SHP]) >> 7) + ((m.envq15 * p[P_ED_SHP]) >> 7);

@@ -330,7 +330,12 @@ typedef struct {
 _Static_assert(sizeof(dsnd_t) == 22u && sizeof(dsu_kit_t) == 364u && sizeof(dsu_bank_t) == 1464u, "drum synth bank layout");
 static dsu_bank_t dsu;
 static volatile uint8_t dsu_dirty;                /* RAM differs from flash (an edit not stored yet) */
+#if EDITION_BOTANICA
+static const uint8_t DSU_DEF[DSU_N] = {0, 1, 2, 3};    /* TWIG, FIELD, DEW, MOSS */
+#else
 static const uint8_t DSU_DEF[DSU_N] = {0, 1, 5, 12};   /* 808, 909, TRAP, TECHNO */
+#endif
+_Static_assert(sizeof DSU_DEF / sizeof DSU_DEF[0] == DSU_N, "a default per SYN kit");
 
 static void dsu_from_factory(uint32_t k, uint32_t src)
 {

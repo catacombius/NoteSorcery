@@ -3,10 +3,12 @@
 # Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
 """Build Felucca: the app, the update loader and an installable .fwsc package.
 
-  tools/build.py [--release X.Y[-suffix]]
+  tools/build.py [--edition notesorcery|botanica] [--release X.Y[-suffix]]
 
 Outputs in build/: felucca.bin (app), loader/ota.bin (update loader),
 felucca.fwsc (package). See BUILDING.md for the toolchain and the SDK.
+--edition botanica builds BOTANICA, the botanica-music firmware on the same platform, into build/botanica/
+(identity FM-1_96XY, botanica-X.Y.fwsc); the generators see NS_EDITION=botanica.
 
 The JieLi toolchain is Linux x86-64 only. JIELI_TOOLCHAIN points at it; on
 macOS (or with JIELI_DOCKER=1) each tool runs in a linux/amd64 container.
@@ -53,6 +55,20 @@ SDK_SHA256 = {
 
 PRODUCT = "FM-1_9500"               # package identity (NoteSorcery); release builds are FM-1_95XY
 VERSION = None                      # FELUCCA_VERSION for release builds (default: firmware/src/ui.c)
+EDITION = "notesorcery"             # --edition: notesorcery, or botanica (FM-1_96XY, build/botanica/)
+EDITIONS = {"notesorcery": ("FM-1_95", "NOTESORCERY", "notesorcery"),   # identity prefix, version name, file name
+            "botanica": ("FM-1_96", "BOTANICA", "botanica")}
+
+
+def set_edition(ed):
+    """build/<edition>/ for every edition but NoteSorcery (whose outputs stay in build/)"""
+    global EDITION, OUT, GEN, LDR, PRODUCT
+    EDITION = ed
+    if ed != "notesorcery":
+        OUT = SRC / "build" / ed
+        GEN = OUT / "gen"
+        LDR = OUT / "loader"
+        PRODUCT = EDITIONS[ed][0] + "00"
 
 
 def toolchain():
@@ -105,8 +121,9 @@ def generate():
             [tools / "gen_logo.py", GEN / "sloop_logo.h"],
             [tools / "gen_wavetables.py", GEN / "ns_waves.h"],
             [tools / "gen_x0x_tables.py", GEN / "x0x_drum_tables.h"]]
+    env = dict(os.environ, NS_EDITION=EDITION)
     procs = [subprocess.Popen([sys.executable, *map(str, c)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              text=True) for c in cmds]
+                              text=True, env=env) for c in cmds]
     failed = []
     for c, p in zip(cmds, procs):
         sys.stdout.write(p.communicate()[0])
@@ -179,7 +196,9 @@ def build_loader():
 # ---- app
 
 def build_app():
-    flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
+    flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", f"-I{GEN.relative_to(SRC)}"]
+    if EDITION == "botanica":
+        flags.append("-DEDITION_BOTANICA=1")
     for flag in ("FELUCCA_FLASH", "FELUCCA_OTA", "FELUCCA_OTA_DRYRUN", "FELUCCA_CDC", "FELUCCA_UART",
                  "FELUCCA_ICONS", "FELUCCA_SLICE"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/felucca.c
@@ -316,15 +335,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_95XY, version string X.Y")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
+    ap.add_argument("--edition", choices=sorted(EDITIONS), default="notesorcery",
+                    help="the firmware to build: notesorcery (build/), or botanica (build/botanica/)")
     a = ap.parse_args()
+    set_edition(a.edition)
     name = "felucca.fwsc"
     if a.release:                   # one digit each: the identity has room for two
         m = re.fullmatch(r"(\d)\.(\d)(-[A-Za-z0-9]+)?", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y or X.Y-suffix, one digit each")
-        PRODUCT = "FM-1_95" + m[1] + m[2]
-        VERSION = "NOTESORCERY " + (a.release.upper() if "BETA" in a.release.upper() else a.release.upper() + " BETA")
-        name = f"notesorcery-{a.release}.fwsc"
+        prefix, vname, fname = EDITIONS[EDITION]
+        PRODUCT = prefix + m[1] + m[2]
+        VERSION = vname + " " + (a.release.upper() if "BETA" in a.release.upper() else a.release.upper() + " BETA")
+        name = f"{fname}-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:
@@ -336,6 +359,7 @@ def main():
         ota = ldr.result()
     img, syms, dis, rt = build_app()
     errors, notes = check(img, syms, dis, rt)
+    notes.insert(0, f"edition {EDITION}")
     hal_err = mmio_check()
     errors += hal_err
     if not hal_err:

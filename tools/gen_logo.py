@@ -6,8 +6,12 @@ mast of a 270-degree dial (the knobs of the UI), a hull, and a geometric monolin
   tools/gen_logo.py OUT.h          firmware boot splash (RLE, 16-colour palette, RGB565): NoteSorcery shows the
                                    icon only and writes its name under it (firmware/src/splash.c)
   tools/gen_logo.py --assets DIR   sloop-logo.svg, sloop-logo.png, sloop-icon.svg/png, sloop-splash.png
+With NS_EDITION=botanica (tools/build.py --edition botanica): BOTANICA's mark instead, a flower of the four knob colours
+(petal pink, leaf green, sky blue, pollen yellow) on a stem with two leaves, in the same dial; --assets then writes
+botanica-icon.svg / .png.
 """
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +21,10 @@ BLUE, GREEN, YELLOW, ORANGE = (40, 124, 255), (30, 204, 112), (255, 198, 24), (2
 WHITE, BLACK = (242, 242, 242), (0, 0, 0)
 HEX = lambda c: "#%02X%02X%02X" % c
 SAIL = [BLUE, GREEN, YELLOW, ORANGE]
+BOTANICA = os.environ.get("NS_EDITION") == "botanica"
+if BOTANICA:                                     # the knob colours of BOTANICA (firmware/src/ui_studio.c TE_COL0)
+    BLUE, GREEN, YELLOW, ORANGE = (255, 120, 168), (96, 200, 110), (90, 170, 255), (255, 206, 64)
+    SAIL = [BLUE, GREEN, YELLOW, ORANGE]
 
 # ---- geometry (units: the icon is 240 x 240, the wordmark x-height is 72) -------------------
 ICON = dict(r=106, w=12, mast_dx=-30, top=-80, bot=38, sail_w=96, gap=6, hull=64)
@@ -46,7 +54,32 @@ def rrect(d, box, r, fill):
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=fill)
 
 
+def draw_flower(d, ox, oy, k):
+    """BOTANICA: the dial, a stem with two leaves, a four-petal flower (pink, green, blue, yellow) and its heart"""
+    g = ICON
+    cx, cy, r, w = ox + 120 * k, oy + 120 * k, g["r"] * k, g["w"] * k
+    d.arc([cx - r, cy - r, cx + r, cy + r], start=135, end=405, fill=WHITE, width=max(1, round(w)))
+    for a in (135, 405):
+        x = cx + (r - w / 2) * math.cos(math.radians(a))
+        y = cy + (r - w / 2) * math.sin(math.radians(a))
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=WHITE)
+    fx, fy = cx, cy - 22 * k                          # the flower's heart
+    rrect(d, [fx - 5 * k, fy, fx + 5 * k, cy + 76 * k], 5 * k, WHITE)   # the stem
+    for sx in (-1, 1):                                # two leaves
+        lx, ly = fx + sx * 24 * k, cy + 58 * k - (sx + 1) * 6 * k
+        d.ellipse([lx - 24 * k, ly - 10 * k, lx + 24 * k, ly + 10 * k], fill=WHITE)
+    pr = 30 * k
+    for i, c in enumerate(SAIL):                      # the petals: up, right, down, left
+        a = math.radians(-90 + 90 * i)
+        px, py = fx + 33 * k * math.cos(a), fy + 33 * k * math.sin(a)
+        d.ellipse([px - pr, py - pr, px + pr, py + pr], fill=c)
+    d.ellipse([fx - 16 * k, fy - 16 * k, fx + 16 * k, fy + 16 * k], fill=WHITE)
+
+
 def draw_icon(d, ox, oy, k):
+    if BOTANICA:
+        draw_flower(d, ox, oy, k)
+        return
     g = ICON
     cx, cy, r, w = ox + 120 * k, oy + 120 * k, g["r"] * k, g["w"] * k
     d.arc([cx - r, cy - r, cx + r, cy + r], start=135, end=405, fill=WHITE, width=max(1, round(w)))
@@ -218,6 +251,12 @@ def splash_header(path):
 def assets(out):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
+    if BOTANICA:
+        render("i", 512, 512, 512 / 240).save(out / "botanica-icon.png")
+        render("i", SPLASH_W, SPLASH_H, SPLASH_K).resize((SPLASH_W * 2, SPLASH_H * 2), Image.NEAREST).save(
+            out / "botanica-splash.png")
+        print(f"logo: BOTANICA assets in {out}")
+        return
     (out / "sloop-logo.svg").write_text(svg("h"))
     (out / "sloop-icon.svg").write_text(svg("i"))
     render("h", 1520, 520, 2.0).save(out / "sloop-logo.png")

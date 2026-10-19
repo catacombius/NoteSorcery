@@ -11,6 +11,15 @@ enum { R_BASS, R_HELD, R_COMP, R_MELODY, R_ONE };
 static int has(const char *n, const char *w) { return strstr(n, w) != 0; }
 static int role_of(const char *n)
 {
+#if EDITION_BOTANICA                                    /* BOTANICA's names */
+    if (has(n, "ROOT") || has(n, "FRETLESS"))
+        return R_BASS;
+    if (has(n, "BLOOM") || has(n, "AIR") || has(n, "WHISPER") || has(n, "ANGEL") || has(n, "HUM") || has(n, "CRICKET") ||
+        has(n, "FREEZE") || has(n, "BREATH") || has(n, "BRUSH"))
+        return R_HELD;
+    if (has(n, "FELT") || has(n, "NURTURE") || has(n, "PEDAL") || has(n, "TINE") || has(n, "BOX"))
+        return R_COMP;
+#endif
     if (has(n, "BASS") || has(n, "808") || has(n, "ACID") || has(n, "REESE") || has(n, "WOBBLE") || has(n, "SUB") || has(n, "BOOM"))
         return R_BASS;
     if (has(n, "PAD") || has(n, "STR") || has(n, "CHOIR") || has(n, "OOH") || has(n, "ORGAN") || has(n, "ORGN") || has(n, "GOSPEL") ||
