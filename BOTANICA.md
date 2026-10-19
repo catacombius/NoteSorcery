@@ -13,8 +13,9 @@ the browser installer and editor, the Ableton export) with its own engines, pres
 free and open source (GPL-3.0-only), and is built on [SLOOP](https://github.com/isod89/sloop-fm1) and
 [Felucca](https://github.com/hugelton/Felucca).
 
-> **Status: 0.1, tested on the host only.** Every feature here passes the host test suite
-> (`tests/run_tests_botanica.sh`), but none has run on an FM-1 yet. Install it at your own risk and back up first.
+> **Status: 0.2, early.** It installs and runs on the FM-1, and every feature passes the host test suite
+> (`tests/run_tests_botanica.sh`), but it has had little play on real hardware yet. Back up first, and report
+> anything odd.
 > BOTANICA does not read NoteSorcery's or SLOOP's projects, and they do not read BOTANICA's.
 
 ## Install
@@ -31,17 +32,21 @@ the rescue steps, which are the same for every edition.
 From source:
 
     bash build.sh --edition botanica                 # build/botanica/felucca.fwsc (identity FM-1_9600)
-    bash build.sh --edition botanica --release 0.1   # build/botanica/botanica-0.1.fwsc (FM-1_9601)
+    bash build.sh --edition botanica --release 0.2   # build/botanica/botanica-0.2.fwsc (FM-1_9602)
     sh tests/run_tests_botanica.sh                   # its host tests, renders and demos
 
 ## The first minute
 
-Power it on and you are in the **GARDEN**. Each of the eight tracks is a plant:
+Power it on and you are in the **GARDEN**, a night garden under the stars. Each of the eight tracks is its own
+plant: a moonflower, a fern, a tulip, lavender, a dandelion and bluebells, and on the drum tracks glowing
+mushrooms and cattails.
 
-- Its stem grows as the track gets louder, and its flower opens on every note.
+- A plant grows as its track gets louder, and answers every note: the moonflower and the tulip open, the fern
+  unfurls, the lavender lights up, the dandelion sheds seeds, the bluebells swing, the mushrooms glow, the
+  cattails bob.
 - A muted track wilts.
-- The sky warms from night blue to dawn pink as the tempo rises.
-- Rain falls with WEATHER, flowers glow with BLOOM, and frost covers the sky when the reverb is frozen.
+- The stars twinkle with the beat under a crescent moon; a faster tempo warms the horizon a little.
+- Rain falls with WEATHER, the plants glow with BLOOM, and frost covers the sky when the reverb is frozen.
 - Droplets and foley hits ripple the pond.
 
 Tap HOME to leave the GARDEN and reach the TRACKS screen. Tap it again to come back. SELECT steps through the

@@ -374,3 +374,16 @@ class FieldAndBackupTest {
         try { Backup.fromJson("{\"format\": \"other\"}"); fail("format") } catch (e: IllegalArgumentException) { }
     }
 }
+
+class DeviceRankTest {
+    @Test
+    fun theFm1IsPickedFirst() {
+        val names = listOf("Pixel Synth" to false, "Bluetooth MIDI" to false, "USB MIDI keyboard" to true,
+            "Hügelton Instruments Felucca" to true)
+        val best = names.maxBy { (n, usb) -> Garden.rankDevice(n, usb) }
+        assertEquals("Hügelton Instruments Felucca", best.first)
+        assertTrue(Garden.rankDevice("H?gelton Instruments Felucca", true) > Garden.rankDevice("USB MIDI keyboard", true))
+        assertTrue(Garden.rankDevice("M-VAVE FM-1", false) > Garden.rankDevice("Some USB synth", true))
+        assertTrue(Garden.rankDevice("SINCO USB-MIDI", true) > Garden.rankDevice("Pixel Synth", false))
+    }
+}

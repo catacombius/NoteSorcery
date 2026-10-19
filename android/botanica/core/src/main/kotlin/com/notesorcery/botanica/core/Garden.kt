@@ -249,5 +249,13 @@ class Garden(send: (ByteArray) -> Unit, timeoutMs: Long = 1500) {
         /** the two pages of four, as on the device (params.c PERFORM, SKY): DESC labels */
         val PERFORM = listOf("BLOOM", "DROPS", "FOLEY", "GLTCH")
         val SKY = listOf("WTHR", "BREEZ", "DRIFT", "FILT")
+
+        /** names an FM-1 shows as a MIDI device: its USB strings are Felucca's ("Hügelton Instruments Felucca"), its
+         * chip vendor's (SINCO) or M-VAVE's, depending on the firmware and the phone */
+        private val FM1_NAME = Regex("FM-?1|M-VAVE|Felucca|H.?gelton|SINCO", RegexOption.IGNORE_CASE)
+
+        /** how likely a MIDI device is the FM-1, higher first: its name, then a USB device, then the rest (virtual
+         * synths of other apps, Bluetooth) */
+        fun rankDevice(name: String, isUsb: Boolean): Int = (if (FM1_NAME.containsMatchIn(name)) 2 else 0) + (if (isUsb) 1 else 0)
     }
 }

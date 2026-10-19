@@ -115,6 +115,12 @@ static void draw_frame(void)
         lcd_fill(i * 60u, Y_LABEL, 4, Y_SEP_END - Y_LABEL, C_BLACK);
     lcd_fill(0, H_HEAD, 240, 1, C_LINE);
     lcd_fill(0, Y_FOOT - 2, 240, 1, C_LINE);
+#if EDITION_BOTANICA
+    for (i = 0; i < 4u; i++) {                          /* a leaf now and then on the rules, as on a vine */
+        lcd_fill(i * 60u + 26u, Y_FOOT - 3, 3, 1, C_LINE);
+        lcd_fill(i * 60u + 27u, Y_FOOT - 4, 1, 1, C_LINE);
+    }
+#endif
     for (i = 1; i < 4u; i++)
         lcd_fill(i * 60u - 1u, H_HEAD + 4, 1, Y_SEP_END - H_HEAD - 4, C_LINE);
 }
@@ -169,7 +175,11 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         fx = ratio * gw / 1000;
         cv_rect(0, gy + 1, gw, 1, C_LINE);
         cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : TE_DIM[c & 3u]);
+#if EDITION_BOTANICA
+        bot_bud(fx, gy - 1, 2, vc == C_DIM ? C_HI : vc);   /* the end: a bud on its stalk */
+#else
         cv_rect(fx, gy - 1, 1, 5, vc == C_DIM ? C_HI : vc);
+#endif
     }
     cv_blit(c * 60u + 4u, Y_LABEL);
 }
@@ -432,7 +442,11 @@ static void graph_browse(void)
             str_cpy(nm, ENGINES[e]->presets[k].name, sizeof nm);
         }
         if (sel)
+#if EDITION_BOTANICA
+            bot_leaf(4, y + 7, 1, C_WHITE);              /* the cursor: a leaf */
+#else
             cv_rect(4, y + 6, 3, 3, C_WHITE);
+#endif
         cv_text(14, y, &FONT_S, tag, sel ? C_GRAY : C_DIM);
         cv_text(54, y, &FONT_S, nm, sel ? C_WHITE : C_GRAY);
     }
