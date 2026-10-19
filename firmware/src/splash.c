@@ -26,12 +26,18 @@ static void sloop_splash(void)
 {
     lcd_fill(0, 0, 240, 240, C_BLACK);
     sloop_logo_draw(4);
-    const char *v = FELUCCA_VERSION;
-    if (v[0] == 'N' && v[1] == 'O' && v[11] == ' ')
-        v += 12;                                        /* "NOTESORCERY 0.1" -> "0.1" under the name */
+    const char *v = FELUCCA_VERSION, *w = v;
+    while (*w && *w != ' ')
+        w++;
+    if (*w)
+        v = w + 1;                                      /* "NOTESORCERY 0.1" -> "0.1" under the name */
     cv_begin(240, 82, C_BLACK);
-    cv_text(120 - text_w(&FONT_L, "NOTESORCERY") / 2, 0, &FONT_L, "NOTESORCERY", RGB(242, 242, 242));
+    cv_text(120 - text_w(&FONT_L, FIRMWARE_NAME) / 2, 0, &FONT_L, FIRMWARE_NAME, RGB(242, 242, 242));
     cv_text(120 - text_w(&FONT_S, v) / 2, 36, &FONT_S, v, RGB(196, 196, 204));
+#if EDITION_BOTANICA
+    cv_text(120 - text_w(&FONT_S, "on sloop + felucca") / 2, 56, &FONT_S, "on sloop + felucca", RGB(96, 120, 100));
+#else
     cv_text(120 - text_w(&FONT_S, "sloop + felucca") / 2, 56, &FONT_S, "sloop + felucca", RGB(96, 96, 104));
+#endif
     cv_blit(0, 156);
 }

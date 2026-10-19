@@ -206,7 +206,7 @@ static void t_ratchet(void)
     }
     check(n == 4u && gaps_ok && count_note(36, 0, blk) == 1u, "drums: a hat x4 plays 4 even hits in its step, the next step plays");
     reset(120);
-    host_preset(&trk[0], 0, 7);                      /* TRAP PLUCK (POLY) */
+    host_preset(&trk[0], ENGI_ANALOG, 7);                      /* TRAP PLUCK (POLY) */
     put_step(&trk[0], 0, 1, (const uint8_t[]){60}, ST_NOTE, 0);
     trk[0].step[0].rat = 2;                          /* x3 */
     transport_req = 1;
@@ -882,7 +882,7 @@ static void t_plock(void)
     uint32_t i, bpb = (uint32_t)((double)FS * 60.0 / 120.0 / CTL + 0.5), ok1, ok2, ok3, ok4;
     int16_t at2, at3, dist0;
     reset(120);
-    host_preset(t, 0, 7);                             /* ANALOG TRAP PLUCK: P_E0 = WAVE (0..4) */
+    host_preset(t, ENGI_ANALOG, 7);                             /* ANALOG TRAP PLUCK: P_E0 = WAVE (0..4) */
     for (i = 0; i < 16u; i++)
         put_step(t, i, 1, (const uint8_t[]){60}, ST_NOTE, 0);
     t->p[P_E0] = 3;
@@ -937,7 +937,7 @@ static void t_fill(void)
     step_fill_set(TDRUM, 4, FC_FILL);
     step_fill_set(TDRUM, 8, FC_NOFILL);
     step_fill_set(TDRUM, 12, FC_FILL);               /* (an empty step: nothing either way) */
-    host_preset(t, 0, 7);                            /* a synth part: C on step 1, E on step 5 FILL ONLY */
+    host_preset(t, ENGI_ANALOG, 7);                            /* a synth part: C on step 1, E on step 5 FILL ONLY */
     put_step(t, 0, 1, (const uint8_t[]){60}, ST_NOTE, 0);
     put_step(t, 4, 1, (const uint8_t[]){64}, ST_NOTE, 0);
     step_fill_set(t, 4, FC_FILL);
@@ -1130,7 +1130,7 @@ static void t_midicc(void)
     a->eng_req = a->engine = ENGI_ANALOG;               /* ANALOG: has RES */
     b->eng_req = b->engine = ENGI_FM6;                  /* FM6: none */
     for (i = 0; i < 8u; i++)
-        if (str_eq(ENGINES[0]->edit[i].label, "RES"))
+        if (str_eq(ENGINES[ENGI_ANALOG]->edit[i].label, "RES"))
             res = i;
     cc_push(0, 7, 0); cc_push(0, 10, 127); cc_push(0, 74, 64); cc_push(0, 72, 127); cc_push(0, 73, 0);
     cc_push(0, 75, 64); cc_push(0, 5, 127); cc_push(0, 91, 127); cc_push(0, 93, 64); cc_push(0, 94, 1);

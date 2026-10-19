@@ -430,11 +430,13 @@ static const uint8_t *ed_bk_obj(uint32_t id, uint32_t *len)   /* 0 = no such obj
             *len = sizeof up_bank[0];
         return (const uint8_t *)&up_bank[id - 6u];
     }
+#if HAVE_FM6
     if (id == 8u) {                                       /* the FM6 patch bank, in flash (XIP) */
         if (fm6_bank_cur >= 0)
             *len = sizeof(fm6_bank_t);
         return (const uint8_t *)fm6_bank_flash(fm6_bank_cur < 0 ? 0u : (uint32_t)fm6_bank_cur);
     }
+#endif
     if (id == 9u) {                                       /* SLOOP 2.5: the SYN drum kits (drum_synth.c dsu) */
         (void)dsu_kit(0);
         *len = sizeof dsu;
@@ -479,6 +481,7 @@ static uint32_t ed_bk_commit(void)
         up_gen++;
         return 0;
     }
+#if HAVE_FM6
     if (id == 8u) {                                       /* the FM6 patch bank (n 0: empty) */
         if (ed_flash_busy())
             return 3;
@@ -490,6 +493,7 @@ static uint32_t ed_bk_commit(void)
         fm6_bank_changed();
         return 0;
     }
+#endif
     if (id == 9u) {                                       /* SLOOP 2.5: the SYN drum kits, written with the settings */
         persist_t p;
         uint32_t k;
@@ -605,7 +609,9 @@ static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* no flash:
 }
 #endif
 
+#if HAVE_FM6
 #include "editor_fm6.c"                               /* v9: the FM6 patches (68..71) */
+#endif
 #include "editor_dsyn.c"                              /* v10: the SYN drum kits (72..76) */
 #include "editor_nsx.c"                               /* v11: NoteSorcery's NSX commands (80..) */
 
@@ -621,10 +627,12 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_send();
         return;
     }
+#if HAVE_FM6
     if (ed_fm6_handle(cmd, a, na)) {                       /* v9: FM6 patches */
         ed_send();
         return;
     }
+#endif
     if (ed_dsyn_handle(cmd, a, na)) {                      /* v10: the SYN drum kits */
         ed_send();
         return;

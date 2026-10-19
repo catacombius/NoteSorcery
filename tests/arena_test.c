@@ -197,7 +197,7 @@ int main(int argc, char **argv)
         memset(held, 0, sizeof held);
         host_tracks_init();
         for (p = 0; p < NPART; p++)
-            host_preset(&trk[p], 0, 0);
+            host_preset(&trk[p], ENGI_ANALOG, 0);
         for (blk = 0; blk < nblk; blk++) {
             if (frnd(64) == 0) {                        /* ~ every 46 ms an event */
                 uint32_t ev = frnd(100);

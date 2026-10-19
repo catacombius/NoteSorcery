@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     struct timespec t0, t1;
     host_tracks_init();
     song.g[G_BPM] = 120;
-    host_preset(&trk[0], 0, 4);
+    host_preset(&trk[0], ENGI_ANALOG, 4);
     host_preset(&trk[1], 1, 5);
     host_preset(&trk[2], 3, 0);
     TDRUM->p[P_E0] = DRUM_SAMPLED;

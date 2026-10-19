@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Build the firmware, run the host tests, and publish the browser installer and editor on GitHub Pages.
+# Build the firmware (NoteSorcery and its BOTANICA edition), run both host test suites, build the BOTANICA Garden
+# Android app, and publish the browser installers and editors on GitHub Pages (BOTANICA under /botanica/).
 # Pull requests build and test only; a push to main (or a manual run) also deploys the site.
 # One-time setup: Settings -> Pages -> Source: GitHub Actions.
 name: site
@@ -12,6 +13,7 @@ on:
 
 env:
   NS_VERSION: "0.1"                          # the release on the site: identity FM-1_95XY, X.Y one digit each
+  BOTANICA_VERSION: "0.1"                    # BOTANICA's release: identity FM-1_96XY
   SDK_TAG: AC79NN_SDK_V1.2.1_2023-12-13
 
 concurrency:
@@ -21,7 +23,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,19 +69,95 @@ jobs:
         run: bash tests/run_tests.sh
       - name: Release build
         run: bash build.sh --release "$NS_VERSION"
+      - name: BOTANICA build
+        run: bash build.sh --edition botanica
+      - name: BOTANICA host tests
+        run: bash tests/run_tests_botanica.sh
+      - name: BOTANICA release build
+        run: bash build.sh --edition botanica --release "$BOTANICA_VERSION"
       - name: Make the site
-        run: python3 web/make_site.py "build/notesorcery-$NS_VERSION.fwsc" "$NS_VERSION" _site
+        run: |
+          python3 web/make_site.py "build/notesorcery-$NS_VERSION.fwsc" "$NS_VERSION" _site --alt ../../botanica/
+          python3 web/make_site.py "build/botanica/botanica-$BOTANICA_VERSION.fwsc" "$BOTANICA_VERSION" _site/botanica \
+              --edition botanica
       - uses: actions/upload-artifact@v4
         with:
           name: notesorcery-${{ env.NS_VERSION }}
           path: build/notesorcery-${{ env.NS_VERSION }}.fwsc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: botanica-${{ env.BOTANICA_VERSION }}
+          path: |
+            build/botanica/botanica-${{ env.BOTANICA_VERSION }}.fwsc
+            build/botanica/botanica_demo/*.wav
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
+  android:                                   # BOTANICA Garden (android/botanica): core's JVM tests, the debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test and build
+        working-directory: android/botanica         # (the runner's Android SDK, ANDROID_HOME; AGP fetches what it lacks)
+        run: |
+          ./gradlew --no-daemon :core:test :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "botanica-garden-$BOTANICA_VERSION-debug.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: botanica-garden-${{ env.BOTANICA_VERSION }}-debug
+          path: android/botanica/botanica-garden-${{ env.BOTANICA_VERSION }}-debug.apk
+
+  release:                                   # a manual run (Actions -> site -> Run workflow) publishes BOTANICA's pre-release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: botanica-${{ env.BOTANICA_VERSION }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: botanica-garden-${{ env.BOTANICA_VERSION }}-debug
+          path: dist
+      - name: Release botanica-v${{ env.BOTANICA_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="botanica-v$BOTANICA_VERSION"
+          cat > notes.md <<EOF_NOTES
+          BOTANICA $BOTANICA_VERSION: a botanica-music firmware for the M-VAVE FM-1, built on NoteSorcery (see BOTANICA.md).
+          Felt piano and droplet engines, foley, BLOOM / WEATHER / GLITCH / BREEZE, tempo drift with BREAK / DROP, petal chords
+          and a GARDEN home screen.
+
+          - **Firmware:** \`botanica-$BOTANICA_VERSION.fwsc\`. Install it with the web installer (the /botanica/ page) or
+            tools/fm1_install.py, as NoteSorcery. Recovery is the FM-1's ROM bootloader, unchanged.
+          - **BOTANICA Garden (Android):** \`botanica-garden-$BOTANICA_VERSION-debug.apk\`, a debug build to sideload.
+          - **Demo renders:** the WAVs, from the host simulator.
+
+          A pre-release: tested in the host simulator and CI only, not yet on an FM-1.
+          EOF_NOTES
+          files=$(find dist -type f \( -name '*.fwsc' -o -name '*.apk' -o -name '*.wav' \) | sort)
+          echo "$files"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $files --clobber
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "BOTANICA $BOTANICA_VERSION" --notes-file notes.md --prerelease $files
+          fi
+
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:

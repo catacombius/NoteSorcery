@@ -102,7 +102,9 @@ static void felucca_init(void)
     uint32_t i;
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
+#if HAVE_FM6
     fm6_init();                               /* every part's FM6 patch: the init voice */
+#endif
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
         track_defaults(t);

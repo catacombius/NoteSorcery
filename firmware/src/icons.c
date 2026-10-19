@@ -100,8 +100,10 @@ static uint32_t param_icon(const param_desc_t *d, int32_t v)
         return ICON_LFO_WAVE;                 /* "WAVE" is also the oscillator wave */
     if (d == &TP[P_ARATE] || d == &TP[P_SLRATE])
         return ICON_DIVISION;                 /* arp / SLICER RATE is a note division, not Hz */
+#if !EDITION_BOTANICA
     if (d->names == N_TRIO_MODE)
         return ICON_CUTOFF;                   /* TRIO's MODE is the filter type, not the arp mode */
+#endif
 #if FELUCCA_SLICE
     if (d->names == N_SLC_DIV)
         return ICON_SLICE;                    /* SLICE: DIV is the slicing, MODE the gate, REV the direction */
@@ -122,6 +124,9 @@ static uint32_t engine_icon(const char *name)
         {"SLICE", ICON_SLICE},
         {"GRAIN", ICON_GRAIN},
         {"DRUM", ICON_DRUM},
+#if EDITION_BOTANICA
+        {"FELT", ICON_SAMPLE}, {"DROPLET", ICON_GRAIN}, {"NOISE", ICON_NOISE}, {"PHYS", ICON_PHASE},
+#endif
     };
     uint32_t i;
     for (i = 0; i < sizeof M / sizeof M[0]; i++)

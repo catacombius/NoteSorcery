@@ -19,7 +19,11 @@
  * from the steps), the track's + the global SWING as the sequencer has them (seq.c trk_grid); sample
  * exact. With the SLICER OFF and no ramp left, the signal is not touched. */
 #define SL_NPAT 16
+#if EDITION_BOTANICA
+#define SL_LEN 1024u                    /* BOTANICA: 46 ms a track (its engines' arenas took the rest) */
+#else
 #define SL_LEN 2048u                    /* recording, 22.05 kHz samples a track: 93 ms, 4 KB (NoteSorcery: 8 tracks; SLOOP had 186 ms) */
+#endif
 #define SL_RAMP_LOG2 7
 #define SL_RAMP (1 << SL_RAMP_LOG2)     /* 128 samples, 2.9 ms */
 #define SL_SLOPE (32768 / SL_RAMP)

@@ -157,7 +157,7 @@ static void draw_menu(void)
         cv_begin(240, pass ? 95u : 124u, C_BLACK);
         cv_oy = pass ? -124 : 0;
         if (ui.menu == 2) {
-            cv_text(4, 4, &FONT_L, "NOTESORCERY", C_WHITE);
+            cv_text(4, 4, &FONT_L, FIRMWARE_NAME, C_WHITE);
             cv_rect(206, 10, 8, 4, TE_COL[0]), cv_rect(206, 16, 12, 4, TE_COL[1]);   /* the sail */
             cv_rect(206, 22, 16, 4, TE_COL[2]), cv_rect(206, 28, 20, 4, TE_COL[3]);
             cv_text(4, 36, &FONT_S, "BASED ON SLOOP + FELUCCA", C_AMB);
@@ -168,8 +168,13 @@ static void draw_menu(void)
             cv_text(4, 104, &FONT_S, "HUGELTON.COM", C_AMB);
             cv_text(4, 119, &FONT_S, "GPL-3.0, NO WARRANTY", C_HI);
             cv_text(4, 132, &FONT_S, "CATACOMBIUS/NOTESORCERY", C_AMB);   /* (the source of this firmware) */
+#if EDITION_BOTANICA
+            cv_text(4, 146, &FONT_S, "SLOOP: ISOD89  BOTANICA ED.", C_DIM);
+            cv_text(4, 159, &FONT_S, "DAISYSP, RINGS: E. GILLET (MIT)", C_DIM);
+#else
             cv_text(4, 146, &FONT_S, "SLOOP: ISOD89  X0X: C. VESTAL", C_DIM);
             cv_text(4, 159, &FONT_S, "OPEN303: R. SCHMIDT (MIT)", C_DIM);
+#endif
             cv_text(4, 172, &FONT_S, "FONT: TERMINUS (OFL)", C_DIM);
             cv_text(4, 185, &FONT_S, "SAMPLES: VERSILIAN (CC0)", C_DIM);
             cv_text(4, 198, &FONT_S, "+ SONIC PI (CC0)", C_DIM);

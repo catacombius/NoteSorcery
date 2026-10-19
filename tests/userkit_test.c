@@ -79,8 +79,8 @@ int main(void)
     song.g[G_DRREV] = 0;                                 /* (no reverb tail between the checks) */
     slot_build(0, notes, lens, 4);
     check(usr_nz[0] == 4u && !usr_nz[1], "USR1 read by smp_user_scan: 4 zones; USR2 empty");
-    check(DRUM_SYN == DRUM_USR + 5u && DRUM_CM808 == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_USR], "USR1") && !strcmp(DRUM_KIT_NAMES[DRUM_USR + 3u], "USR4") &&
-          !strcmp(DRUM_KIT_NAMES[DRUM_PAIR], "USR3+4") && DRUM_PAIR == DRUM_SYN - 1u && !strcmp(DRUM_KIT_NAMES[DRUM_SAMPLED], "808"),
+    check(DRUM_SYN == DRUM_USR + 5u && T_KIT_AFTER_SYN == DRUM_SYN + 4u && !strcmp(DRUM_KIT_NAMES[DRUM_USR], "USR1") && !strcmp(DRUM_KIT_NAMES[DRUM_USR + 3u], "USR4") &&
+          !strcmp(DRUM_KIT_NAMES[DRUM_PAIR], "USR3+4") && DRUM_PAIR == DRUM_SYN - 1u && !strcmp(DRUM_KIT_NAMES[DRUM_SAMPLED], T_KIT0),
           "KIT: USR1..USR4, USR3+4 after the synthesised kits (the old kit numbers kept)");
     check(SMP_USER_OFF(0u) == 0xA0000u && SMP_USER_OFF(2u) == 0xC0000u && SMP_USER_OFF(3u) == 0xE7000u &&
           SMP_USER_SIZE == 0x10000u && FL_STORE_OK(0xE7000u, 0x14000u) && !FL_STORE_OK(0xE7000u, 0x14001u) &&

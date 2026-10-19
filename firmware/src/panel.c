@@ -13,7 +13,11 @@ static const char *const B_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO",
                                         "ARP", "SEQ", "PLAY", "REC", "OCT-", "OCT+"};
 static const char *const E_NAME[NE] = {"SELECT", "ALGORITHM", "PRESETS", "KNOB 1", "KNOB 2",
                                         "KNOB 3", "KNOB 4"};
+#if EDITION_BOTANICA
+#define PANEL_MAGIC 0x31415042u          /* "BPA1": BOTANICA's panel */
+#else
 #define PANEL_MAGIC 0x50414E35u          /* "PAN5": bump when PANEL_DEFAULT changes */
+#endif
 
 typedef struct {
     uint32_t magic;
@@ -69,7 +73,11 @@ static int32_t panel_enc(uint32_t role)
 }
 
 /* user settings that survive a reset */
+#if EDITION_BOTANICA
+#define SETTINGS_MAGIC 0x31535442u              /* "BTS1": BOTANICA's settings (its palettes) */
+#else
 #define SETTINGS_MAGIC 0x53455433u              /* "SET3" */
+#endif
 struct { uint32_t magic, palette, lowcut, zoom; } settings __attribute__((section(".noinit")));
 
 /* the lights (menu LIGHTS / KEYS / NOTES), for playing in the dark: kept in flash with the settings
@@ -117,7 +125,7 @@ static uint32_t lights_word(void)
     return (uint32_t)lights_lvl | (uint32_t)lights_keys << 4 | (uint32_t)(lights_notes != 0u) << 8 |
            (uint32_t)(rec_tempo != 0u) << 9 | (uint32_t)(rec_count != 0u) << 10 | (uint32_t)(usb_full != 0u) << 11 |
            (uint32_t)(lights_sync % 3u) << 12 | (uint32_t)(lights_mout & 1u) << 14 | (uint32_t)((lights_mout >> 1) & 1u) << 21 | (uint32_t)(lights_min != 0u) << 15 |
-           (uint32_t)(usb_serial != 0u) << 16 | (uint32_t)(vis_style % 12u) << 17 |
+           (uint32_t)(usb_serial != 0u) << 16 | (uint32_t)(vis_style % (12u + EDITION_BOTANICA)) << 17 |
            (uint32_t)(scr_bright % NBRIGHT) << 22 | (uint32_t)(night_on != 0u) << 24 |   /* NoteSorcery: BRIGHT, NIGHT */
            (uint32_t)(night_prev[0] & 3u) << 25 | (uint32_t)(night_prev[1] & 3u) << 27 |  /* .. and what NIGHT left */
            (uint32_t)(night_prev[2] & 1u) << 29 | (uint32_t)(usb_sample != 0u) << 30;   /* (NIGHT's BRIGHT: RAM only) */
@@ -139,7 +147,7 @@ static void lights_from_word(uint32_t w)
     night_prev[0] = (uint8_t)((w >> 25) & 3u), night_prev[1] = (uint8_t)((w >> 27) & 3u);
     night_prev[2] = (uint8_t)((w >> 29) & 1u);
     usb_sample = (uint8_t)((w >> 30) & 1u);
-    vis_style = (uint8_t)(((w >> 17) & 15u) % 12u);   /* the visualiser (ui_vis.c); 0 in 2.3 = OSCILLOSCOPE */     /* menu USB SERIAL (usb.c usb_cdc_on, at the next start); 0 in 2.3 = OFF */
+    vis_style = (uint8_t)(((w >> 17) & 15u) % (12u + EDITION_BOTANICA));   /* the visualiser (ui_vis.c); 0 in 2.3 = OSCILLOSCOPE */     /* menu USB SERIAL (usb.c usb_cdc_on, at the next start); 0 in 2.3 = OFF */
 }
 
 static void settings_save(void);              /* project.c: flash copy (FELUCCA_FLASH) */
@@ -149,7 +157,11 @@ static void settings_init(void)
 {
     if (settings.magic != SETTINGS_MAGIC || settings.palette >= NPALETTES) {
         settings.magic = SETTINGS_MAGIC;
+#if EDITION_BOTANICA
+        settings.palette = 0;                  /* BOTANICA: MOSS */
+#else
         settings.palette = 4;                  /* MONO (default) */
+#endif
         settings.lowcut = 0;
         settings.zoom = 0;                     /* large readout of the touched value: off */
     }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="BOTANICA">
+<rect width="240" height="240" fill="#0A1A12"/>
+<path d="M45.05 194.95 A100 100 0 1 1 194.95 194.95" fill="none" stroke="#F4EEDE" stroke-width="12" stroke-linecap="round"/>
+<rect x="115" y="98" width="10" height="98" rx="5" fill="#F4EEDE"/>
+<ellipse cx="96" cy="178" rx="24" ry="10" fill="#F4EEDE"/>
+<ellipse cx="144" cy="166" rx="24" ry="10" fill="#F4EEDE"/>
+<circle cx="120" cy="65" r="30" fill="#FF78A8"/>
+<circle cx="153" cy="98" r="30" fill="#60C86E"/>
+<circle cx="120" cy="131" r="30" fill="#5AAAFF"/>
+<circle cx="87" cy="98" r="30" fill="#FFCE40"/>
+<circle cx="120" cy="98" r="16" fill="#F4EEDE"/>
+</svg>

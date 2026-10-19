@@ -8,9 +8,15 @@
  * right, as if MASTER were all the way up: the picture does not follow the volume knob, even at 0), the tracks' peaks (fx.c / drums.c, as the TRACKS meters read them), the notes that started
  * (voice.c vis_hit) and the transport clock. Everything is drawn in the main loop, every other frame, in two
  * bands of 120 rows (the canvas holds 124): no cost to the audio. */
+#if EDITION_BOTANICA
+#define VIS_N 13u                                   /* BOTANICA: GARDEN first (ui_garden.c), then the twelve */
+static const char *const VIS_NAME[VIS_N] = {"GARDEN", "OSCILLOSCOPE", "SPECTRUM", "SPECTROGRAM", "LISSAJOUS",
+                                            "VU METERS", "CIRCLE", "TAPE", "LCD", "BOUNCE", "ORBIT", "WIRES", "SLOOP"};
+#else
 #define VIS_N 12u
 static const char *const VIS_NAME[VIS_N] = {"OSCILLOSCOPE", "SPECTRUM", "SPECTROGRAM", "LISSAJOUS", "VU METERS",
                                             "CIRCLE", "TAPE", "LCD", "BOUNCE", "ORBIT", "WIRES", "SLOOP"};
+#endif
 /* vis_on, vis_shown_last, vis_name_t: ui_draw.c; vis_style: panel.c (kept with the settings) */
 #define VIS_FFT 512u
 #define VIS_SG_W 48u                                /* spectrogram: 48 columns of 5 px, 72 rows of 3 px */
@@ -180,6 +186,9 @@ static void vis_fft(void)
             }
     }
 }
+#if EDITION_BOTANICA
+#include "ui_garden.c"                              /* GARDEN: BOTANICA's home picture */
+#endif
 /* the 32 bands of the last FFT, 0..1000 (60 dB under a full-scale sine) */
 static void vis_bands(int16_t *out)
 {
@@ -237,6 +246,9 @@ static void vis_update(void)
                 hit |= 1u << g;
                 gn[g] = vis_note[i];                /* (the group's note: its last track's) */
             }
+#if EDITION_BOTANICA
+            garden_take(i, p, (int)((h >> i) & 1u));   /* (GARDEN: every track its own plant) */
+#endif
         }
     }
     vis_hit = 0;
@@ -276,6 +288,9 @@ static void vis_update(void)
     }
     vs.wph += 37u;
     vs.peak = mpk;
+#if EDITION_BOTANICA
+    garden_update();
+#endif
     {                                               /* the wave's scale follows the peak */
         int32_t target = mpk < 1600 ? 1600 : mpk;
         vs.scale += (target - vs.scale) / 5;
@@ -625,7 +640,12 @@ static void vis_draw(void)
     for (pass = 0; pass < 2u; pass++) {
         cv_begin(240, 120, C_BLACK);
         cv_oy = -(int32_t)(pass * 120u);
+#if EDITION_BOTANICA
+        switch (vis_style % VIS_N ? vis_style % VIS_N - 1u : 99u) {   /* (0: GARDEN) */
+        case 99: vis_garden(); break;
+#else
         switch (vis_style % VIS_N) {
+#endif
         case 0: vis_scope(); break;
         case 1: vis_spectrum(); break;
         case 2: vis_spectrogram(); break;
@@ -646,7 +666,7 @@ static void vis_draw(void)
             cv_text(120 - text_w(&FONT_S, s) / 2, 2, &FONT_S, s, C_WHITE);
             if (!ui.msg_t) {
                 fmt_int(n, (int32_t)(vis_style % VIS_N) + 1);
-                str_cpy(n + str_len(n), "/12", 4);
+                str_cpy(n + str_len(n), EDITION_BOTANICA ? "/13" : "/12", 4);
                 cv_text(4, 2, &FONT_S, n, C_DIM);
             }
         }

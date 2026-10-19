@@ -17,6 +17,19 @@ static int on_drum_page(void) { return !ui.home && cur_page()->scope == SC_DRUM;
 #define TE_G4 RGB(196, 196, 204)         /* secondary text */
 #define TE_RED RGB(255, 44, 52)          /* recording, erasing */
 /* (the colours as designed; TE_* / TRK_* are them at the screen's BRIGHT: studio_colors) */
+#if EDITION_BOTANICA
+/* BOTANICA: the knobs petal pink, leaf green, sky blue, pollen yellow (each colour always KNOB n, as the OP-1's);
+ * the tracks the same four, then lavender, coral, moss and dew */
+static const uint16_t TE_COL0[4] = {RGB(255, 120, 168), RGB(96, 200, 110), RGB(90, 170, 255), RGB(255, 206, 64)};
+static const uint16_t TE_MID0[4] = {RGB(170, 80, 112), RGB(64, 134, 74), RGB(60, 114, 170), RGB(170, 138, 42)};
+static const uint16_t TE_DIM0[4] = {RGB(86, 40, 56), RGB(32, 66, 36), RGB(30, 56, 86), RGB(86, 68, 22)};
+static const uint16_t TRK_COL0[NTRK] = {RGB(255, 120, 168), RGB(96, 200, 110), RGB(90, 170, 255), RGB(255, 206, 64),
+                                        RGB(176, 140, 255), RGB(255, 140, 100), RGB(150, 190, 60), RGB(80, 210, 190)};
+static const uint16_t TRK_MID0[NTRK] = {RGB(170, 80, 112), RGB(64, 134, 74), RGB(60, 114, 170), RGB(170, 138, 42),
+                                        RGB(118, 94, 170), RGB(170, 94, 66), RGB(100, 126, 40), RGB(54, 140, 126)};
+static const uint16_t TRK_DIM0[NTRK] = {RGB(86, 40, 56), RGB(32, 66, 36), RGB(30, 56, 86), RGB(86, 68, 22),
+                                        RGB(58, 46, 86), RGB(86, 46, 34), RGB(50, 64, 20), RGB(26, 70, 64)};
+#else
 static const uint16_t TE_COL0[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
 static const uint16_t TE_MID0[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
 static const uint16_t TE_DIM0[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
@@ -28,6 +41,7 @@ static const uint16_t TRK_MID0[NTRK] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(
                                         RGB(16, 134, 146), RGB(170, 60, 114), RGB(170, 66, 18), RGB(114, 146, 20)};
 static const uint16_t TRK_DIM0[NTRK] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(56, 32, 86),
                                         RGB(8, 66, 74), RGB(86, 30, 56), RGB(86, 32, 8), RGB(56, 74, 10)};
+#endif
 static uint16_t TE_COL[4], TE_MID[4], TE_DIM[4], TRK_COL[NTRK], TRK_MID[NTRK], TRK_DIM[NTRK];
 static void studio_colors(uint32_t q8)                   /* (gfx.c palette_set) */
 {

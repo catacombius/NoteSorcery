@@ -162,6 +162,9 @@ static inline void master_out(int32_t *l, int32_t *r)
 static uint32_t delay_samples(void)
 {
     uint32_t s = dly_samples((uint32_t)song.g[G_DTIME]);
+#if EDITION_BOTANICA
+    s = (uint32_t)((int32_t)s + bot_delay_wobble());   /* BREEZE: the echo drifts a little */
+#endif
     return s < 16u ? 16u : s >= DLY_LEN ? DLY_LEN - 1u : s;
 }
 
@@ -176,6 +179,10 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     int32_t g = 17000 + song.g[G_RSIZE] * 104, lpk = 32767 - song.g[G_RDAMP] * 200;   /* loop gain (RT60 ~0.4..4 s), damping */
     int32_t cdepth = song.g[G_CDEPTH] * 6;
     int32_t ca0, ca1, cb0, cb1, ma, mb, dca, dcb;
+#if EDITION_BOTANICA
+    int32_t in0, in1, rt0, rt1;                         /* BLOOM: the reverb's input and return, ramped */
+    bot_bloom(rev_in, n, &g, &lpk, &cdepth, &in0, &in1, &rt0, &rt1);
+#endif
     const uint32_t L0 = REV_LINE[0] + REV_MOD + 2u, B1 = L0, B2 = B1 + REV_LINE[1], B3 = B2 + REV_LINE[2];
     {   /* the chorus' two read points (Q8 samples back) and line 0's extra length, at both ends of the block */
         int32_t s0 = osc_sine(fx.cho_ph), s1, m0 = osc_sine(fx.rev_ph), m1;
@@ -212,6 +219,9 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         yr += x;
         /* reverb: two diffusers, then the four lines */
         a = mulq15(rev_in[i], 13000);
+#if EDITION_BOTANICA
+        a = mulq15(a, in0 + (((in1 - in0) * (int32_t)i) >> CTL_LOG2));
+#endif
         {
             int16_t *c = rev_ap;
             for (k = 0; k < 2u; k++) {
@@ -248,8 +258,16 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             if (++fx.line_i[2] >= REV_LINE[2]) fx.line_i[2] = 0;
             if (++fx.line_i[3] >= REV_LINE[3]) fx.line_i[3] = 0;
         }
+#if EDITION_BOTANICA
+        {
+            int32_t rt = rt0 + (((rt1 - rt0) * (int32_t)i) >> CTL_LOG2);
+            wet_l[i] = yl + mulq15(o0 + o2, rt);
+            wet_r[i] = yr + mulq15(o1 - o3, rt);
+        }
+#else
         wet_l[i] = yl + o0 + o2;
         wet_r[i] = yr + o1 - o3;
+#endif
     }
 }
 
@@ -425,7 +443,11 @@ static int32_t crush_bits(int32_t v, int32_t shift)    /* fewer bits, rounded to
 
 static void dust_process(int32_t *l, int32_t *r, uint32_t n)
 {
+#if EDITION_BOTANICA
+    int32_t d = bot_weather_dust(), hold, shift, a, drive, hiss, i, bed0, bed1;   /* (WEATHER turns it up) */
+#else
     int32_t d = song.g[G_DUST], hold, shift, a, drive, hiss, i, bed0, bed1;
+#endif
     uint32_t pc;
     if (!d) {
         dust.bed = 0;
@@ -513,6 +535,9 @@ static void __attribute__((noinline)) mix_block(int32_t *out, uint32_t n)   /* (
         }
     }
     click_render(mix_l, mix_r, n);                      /* the metronome: its own voice (drums.c), any kit, any mute */
+#if EDITION_BOTANICA
+    bot_bloom_send(send_r, mix_l, mix_r, n);            /* BLOOM: the mix washed into the reverb */
+#endif
     fx_buses(send_c, send_d, send_r, wet_l, wet_r, n);
     for (i = 0; i < n; i++) {
         mix_l[i] += wet_l[i];

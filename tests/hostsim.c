@@ -31,6 +31,7 @@ static struct { volatile uint32_t notes, buttons; } fm1_in;
 static void fm1_irq_off(void) {}                 /* (the host: one thread) */
 static void fm1_irq_on(void) {}
 #include "../firmware/src/core.h"
+#include "edition_map.h"                         /* (BOTANICA: the engines by role) */
 #include "../firmware/src/engines.c"
 #include "../firmware/src/drums.c"
 #include "../firmware/src/params.c"
@@ -83,6 +84,10 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
         for (i = 0; i < P_E0; i++)
             trk[k].p[i] = TP[i].def;
         steps_clear(&trk[k]);
+#if EDITION_BOTANICA
+        if (k < NPART && !trk[k].engine && !trk[k].eng_req)   /* (the tests' plain synth, engine 0 on NoteSorcery) */
+            trk[k].engine = trk[k].eng_req = (uint8_t)ENGI_ANALOG;
+#endif
     }
     song.master_q12 = 4096;
 }
@@ -179,7 +184,7 @@ static int tracks_demo(const char *dir, const char *name, uint32_t solo)
     }
     host_tracks_init();
     song.g[G_BPM] = 120;
-    host_preset(t1, 0, 4);
+    host_preset(t1, ENGI_ANALOG, 4);
     host_preset(t2, ENGI_FM6, 4);                  /* SOFT PAD */
     host_preset(t3, ENGI_TRIO, 6);                 /* SYNC LEAD */
     for (i = 0; i < 16u; i++) {
@@ -365,7 +370,7 @@ static int steal_test(const char *dir)
     host_tracks_init();
     for (p = 0; p < NPART; p++) {
         track_t *t = &trk[p];
-        host_preset(t, 0, 5);                      /* ANALOG SINE KEY, as a plain held sine: */
+        host_preset(t, ENGI_ANALOG, 5);                      /* ANALOG SINE KEY, as a plain held sine: */
         t->p[P_E4] = 127;                          /* filter open, no resonance, no drive */
         t->p[P_E5] = t->p[P_E6] = 0;
         t->p[P_ED_FLT] = 0;
@@ -428,7 +433,7 @@ static int steal_test(const char *dir)
  * Writes DIR/engine_switch.wav. */
 static void xfade_sine(track_t *t)
 {
-    host_preset(t, 0, 5);                          /* ANALOG, as a plain held sine */
+    host_preset(t, ENGI_ANALOG, 5);                /* ANALOG, as a plain held sine */
     t->p[P_E0] = 3;                                /* (SIN, whichever preset that is) */
     t->p[P_E1] = t->p[P_E2] = t->p[P_E3] = 0;
     t->p[P_ED_FX] = 0;
@@ -538,9 +543,9 @@ static int rec_test(void)
     int ok_len, ok_short, ok_half, ok_cap, ok_swing, ok_mono, ok_chord, fail;
     host_tracks_init();
     song.g[G_BPM] = 120;
-    host_preset(t1, 0, 1);                          /* POLY pad */
-    host_preset(t2, 0, 1);
-    host_preset(t3, 0, 0);                          /* SAW LEAD */
+    host_preset(t1, ENGI_ANALOG, 1);                          /* POLY pad */
+    host_preset(t2, ENGI_ANALOG, 1);
+    host_preset(t3, ENGI_ANALOG, 0);                          /* SAW LEAD */
     t1->p[P_VOICE] = t2->p[P_VOICE] = V_POLY;
     t3->p[P_VOICE] = V_MONO;
     t2->p[P_SLEN] = 4;
@@ -647,7 +652,7 @@ static int trs_test(void)
     int ok_parts, ok_drum, ok_sel, ok_off, ok_hang, ok_rec;
     host_tracks_init();
     for (i = 0; i < NPART; i++) {
-        host_preset(&trk[i], 0, 1);
+        host_preset(&trk[i], ENGI_ANALOG, 1);
         trk[i].p[P_VOICE] = V_POLY;
         trk[i].p[P_SUS] = 127;
     }

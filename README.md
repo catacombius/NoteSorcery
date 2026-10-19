@@ -11,6 +11,17 @@ which is built on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshit
 > your own risk and back up first: NoteSorcery does
 > not read SLOOP's projects, and its sample slots are smaller (see [Differences from SLOOP](#differences-from-sloop)).
 
+## Alternate release: BOTANICA
+
+**[BOTANICA](BOTANICA.md)** is NoteSorcery's botanica-music edition, on the same platform with its own sounds and
+screens:
+- FELT (a felt piano with a string bloom), DROPLET (plucks that drop pitch-jumping echoes) and procedural FOLEY.
+- The PERFORM and SKY macros on four colour-coded knobs (BLOOM, DROPS, FOLEY, GLITCH; WEATHER, BREEZE, DRIFT).
+- Petal chords and progressions, BREAK / DROP, the GARDEN home screen.
+- A companion Android app, [BOTANICA Garden](android/botanica/README.md).
+
+Build it with `build.sh --edition botanica`; its installer is `/botanica/` on the site.
+
 ## Install
 
 Open **<https://catacombius.github.io/NoteSorcery/>** in **Chrome or Edge** on a computer, plug the FM-1 in by USB (a data

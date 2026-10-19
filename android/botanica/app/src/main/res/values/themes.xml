@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the window behind Compose: the MOSS ground, so the start has no white flash -->
+    <style name="Theme.Botanica" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/moss</item>
+        <item name="android:statusBarColor">@color/moss</item>
+        <item name="android:navigationBarColor">@color/moss</item>
+    </style>
+    <color name="moss">#FF10201A</color>
+    <color name="petal">#FFF48FB1</color>
+</resources>

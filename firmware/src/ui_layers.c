@@ -27,6 +27,11 @@ static const char *const LAYER_NAME[LY_COUNT] = {"", "punch", "erase", "roll", "
 #define MIX_K_FILL 1u                                   /* F#3 */
 #define MIX_K_BAR 3u                                    /* G#3 */
 #define MIX_K_TAP 5u                                    /* A#3 */
+#if EDITION_BOTANICA
+#define MIX_K_BREAK 8u                                  /* C#4: BREAK while held, the drop on the next bar (bot_seq.c) */
+#define MIX_K_FREEZE 10u                                /* D#4: the reverb frozen while held (bot_fx.c) */
+#define MIX_K_GLITCH 13u                                /* F#4: GLITCH all the way while held */
+#endif
 static uint32_t mix_bank(void) { return song.sel / 4u % (NTRK / 4u); }   /* GLO's knobs: tracks 1..4 or 5..8 */
 static void section_store(uint32_t s);                  /* project.c */
 static void section_load(uint32_t s);
@@ -332,6 +337,16 @@ static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
         } else if (layer == LY_MIX && k == MIX_K_FILL) {
             fill_held = 0;                                  /* GLO + black key 1 let go: the fill ends */
         }
+#if EDITION_BOTANICA
+        else if (layer == LY_MIX && k == MIX_K_BREAK && bot_brk == 1u) {
+            bot_brk = song.playing ? 2u : 0u;               /* the drop: on the next bar */
+            ui_message(song.playing ? "DROP: NEXT BAR" : "BREAK OFF");
+        } else if (layer == LY_MIX && k == MIX_K_FREEZE) {
+            bot.freeze_hold = 0;
+        } else if (layer == LY_MIX && k == MIX_K_GLITCH) {
+            bseq.glitch_hold = 0;
+        }
+#endif
         return;
     }
     switch (layer) {
@@ -426,6 +441,18 @@ static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
         } else if (w < 0 && k == MIX_K_TAP) {
             tap_tempo();
         }
+#if EDITION_BOTANICA
+        else if (w < 0 && k == MIX_K_BREAK) {
+            bot_brk = 1;                                    /* BREAK: the others silent, the reverb frozen */
+            ui_message("BREAK");
+        } else if (w < 0 && k == MIX_K_FREEZE) {
+            bot.freeze_hold = 1;
+            ui_message("FREEZE");
+        } else if (w < 0 && k == MIX_K_GLITCH) {
+            bseq.glitch_hold = 1;
+            ui_message("GLITCH");
+        }
+#endif
         return;
     default:
         return;

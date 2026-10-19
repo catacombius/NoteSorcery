@@ -982,7 +982,8 @@ static void ui_timers(void)
 
 static void vis_draw(void);                     /* ui_vis.c */
 static int vis_shown(void);
-static uint8_t vis_on, vis_shown_last, vis_name_t;   /* the visualiser (ui_vis.c): on, drawn last frame, its name's time */
+static uint8_t vis_on = EDITION_BOTANICA, vis_shown_last, vis_name_t;   /* the visualiser (ui_vis.c): on (BOTANICA: the
+                                                     * GARDEN at power-on), drawn last frame, its name's time */
 static void ui_draw(void)
 {
     ui.frame++;

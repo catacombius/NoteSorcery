@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     FILE *f = argc > 1 ? fopen(argv[1], "wb") : 0;
     const uint32_t frames = (FS * 9u / CTL) * CTL;
     host_tracks_init();
-    host_preset(&trk[0], 0, 4);        /* bass */
+    host_preset(&trk[0], ENGI_ANALOG, 4);        /* bass */
     host_preset(&trk[1], 1, 5);        /* pad */
     host_preset(&trk[2], 3, 0);        /* melody */
     for (i = 0; i < NTRK; i++) {

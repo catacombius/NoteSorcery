@@ -18,7 +18,11 @@
 #define UP_PMAX 72u                              /* room for P_COUNT to grow */
 #define UP_USED 0xA5u
 #define UP_VER 1u
+#if EDITION_BOTANICA
+#define UP_BANK_MAGIC 0x31555442u                /* "BTU1": BOTANICA's user presets */
+#else
 #define UP_BANK_MAGIC 0x31425055u                /* "UPB1" */
+#endif
 typedef struct {
     uint8_t used, ver, engine, np;               /* UP_USED, UP_VER, engine, P_COUNT when stored */
     char name[12];                               /* ASCII 32..126, 0-padded (no 0 when 12 long) */
@@ -257,7 +261,9 @@ static int up_load(uint32_t k)
         t->p[i] = v[i];
     t->preset = 0;
     fm1_irq_on();
+#if HAVE_FM6
     fm6_track_loaded(t);                                /* FM6: a user preset holds the PTCH and the macros */
+#endif
     t->user = (uint8_t)(k + 1u);
     sync_reload = 1;
     ui.force = 1;

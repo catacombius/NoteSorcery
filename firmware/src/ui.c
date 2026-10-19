@@ -3,7 +3,16 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
+#if EDITION_BOTANICA
+#define FELUCCA_VERSION "BOTANICA 0.1"      /* the botanica-music firmware for the FM-1 (on SLOOP and Felucca) */
+#else
 #define FELUCCA_VERSION "NOTESORCERY 0.1"   /* the groovebox firmware for the FM-1 (based on SLOOP and Felucca) */
+#endif
+#endif
+#if EDITION_BOTANICA
+#define FIRMWARE_NAME "BOTANICA"
+#else
+#define FIRMWARE_NAME "NOTESORCERY"
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -248,9 +257,16 @@ static void go_home(void)
  * writes the sequencer: every pattern is the one the player records or enters. */
 
 /* the parts' sounds at power-on (engine, preset): bass, pad, lead */
+#if EDITION_BOTANICA
+/* BOTANICA power-on, dowfi's layers: NURTURE KEYS (felt piano), KALIMBA (droplets), SOFT SUB (the root), CANOPY PAD,
+ * LEAF CRUNCH (foley), AIR CHOIR */
+static const uint8_t TRK_DEF[NPART][2] = {{ENGI_FELT, 1}, {ENGI_DROPLET, 0}, {ENGI_ANALOG, 0}, {ENGI_ANALOG, 3},
+                                          {ENGI_NOISE, 1}, {ENGI_FORMANT, 0}};
+#else
 /* the power-on sounds of tracks 1..6: ACID CLASS, TINE EP, SYNC LEAD, WARM PAD, GLASS BELL, GRAND PNO */
 static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ACID, 0}, {ENGI_FM6, 0}, {ENGI_TRIO, 6}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1},
                                           {ENGI_SAMPLE, 0}};
+#endif
 static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? TRK_DEF[i][0] : 0u; }
 
 static int seq_is_empty(const track_t *t) { return track_empty(t); }
@@ -303,7 +319,9 @@ static void apply_preset_to(track_t *t, uint32_t pi)
         }
         preset_extras(t->p, pr);                     /* glide, pitch / LFO modulation, voice mode */
     }
+#if HAVE_FM6
     fm6_track_loaded(t);                             /* FM6: the preset's patch (its PTCH) */
+#endif
 }
 
 /* the engine's defaults and its first preset. With the audio IRQ off: the ISR sees the old engine with
@@ -347,6 +365,41 @@ static void select_engine(uint32_t e)
 /* the factory presets as one list by kind (basses, keys, organs, pads, leads, plucks and bells, stabs,
  * the rest), then the used user presets: the PRESETS knob and the PRESETS page browse it. By name: an
  * engine's preset table may change order; tests/ui_pages_test.c checks every preset is here once */
+#if EDITION_BOTANICA
+/* BOTANICA: by mood, not by kind: PETALS (keys and plucks), CANOPY (pads and drones), DEW (droplets, grains, glitter),
+ * VOICES, ROOTS (basses), WEATHER (foley and textures), HYPER (leads) */
+enum { BK_PETALS, BK_CANOPY, BK_DEW, BK_VOICES, BK_ROOTS, BK_WEATHER, BK_HYPER };
+static const char *const BANK_KIND[] = {"PETL", "CANP", "DEW", "VOIC", "ROOT", "WTHR", "HYPR"};
+static const struct { uint8_t kind, e; const char *name; } BANK[] = {
+    {BK_PETALS, ENGI_FELT, "FELT UPRIGHT"}, {BK_PETALS, ENGI_FELT, "NURTURE KEYS"}, {BK_PETALS, ENGI_FELT, "PNO+STRINGS"},
+    {BK_PETALS, ENGI_FELT, "SOFT PEDAL"}, {BK_PETALS, ENGI_FELT, "HOLLOW FELT"}, {BK_PETALS, ENGI_FELT, "BOX PIANO"},
+    {BK_PETALS, ENGI_FELT, "TINE DREAM"}, {BK_PETALS, ENGI_SAMPLE, "GRAND PNO"}, {BK_PETALS, ENGI_SAMPLE, "DUSTY PNO"},
+    {BK_PETALS, ENGI_SAMPLE, "LOFI KEYS"}, {BK_PETALS, ENGI_DROPLET, "KALIMBA"}, {BK_PETALS, ENGI_DROPLET, "MARIMBA"},
+    {BK_PETALS, ENGI_DROPLET, "MUSIC BOX"}, {BK_PETALS, ENGI_DROPLET, "HARP"}, {BK_PETALS, ENGI_PHYS, "FAIRY HARP"},
+    {BK_PETALS, ENGI_PHYS, "NYLON GTR"}, {BK_PETALS, ENGI_PHYS, "STEEL GTR"}, {BK_PETALS, ENGI_PHYS, "MUTED GTR"},
+    {BK_PETALS, ENGI_PHYS, "KOTO"}, {BK_PETALS, ENGI_PHYS, "THUMB PNO"}, {BK_PETALS, ENGI_PHYS, "VIBRA BAR"},
+    {BK_PETALS, ENGI_WAVE, "BELL TONE"}, {BK_PETALS, ENGI_PHYS, "WIND CHIMES"}, {BK_PETALS, ENGI_PHYS, "BELL TREE"},
+    {BK_CANOPY, ENGI_FELT, "STRING BLOOM"}, {BK_CANOPY, ENGI_ANALOG, "CANOPY PAD"}, {BK_CANOPY, ENGI_ANALOG, "MOSS STRINGS"},
+    {BK_CANOPY, ENGI_ANALOG, "DAWN PAD"}, {BK_CANOPY, ENGI_ANALOG, "SINE PAD"}, {BK_CANOPY, ENGI_WAVE, "GLASS PAD"},
+    {BK_CANOPY, ENGI_WAVE, "HOLLOW AIR"}, {BK_CANOPY, ENGI_WAVE, "SOFT SAW"}, {BK_CANOPY, ENGI_GRAIN, "PNO CLOUD"},
+    {BK_CANOPY, ENGI_GRAIN, "PNO FREEZE"}, {BK_CANOPY, ENGI_GRAIN, "DEEP DRONE"}, {BK_CANOPY, ENGI_PHYS, "GLASS BOWL"},
+    {BK_CANOPY, ENGI_PHYS, "CELLO BOW"}, {BK_CANOPY, ENGI_PHYS, "TANPURA"},
+    {BK_DEW, ENGI_DROPLET, "GLASS DROPS"}, {BK_DEW, ENGI_DROPLET, "RAIN ARP"}, {BK_DEW, ENGI_DROPLET, "DEW CHIRP"},
+    {BK_DEW, ENGI_DROPLET, "BUBBLE FM"}, {BK_DEW, ENGI_DROPLET, "SPARKLE"}, {BK_DEW, ENGI_GRAIN, "SHIMMER"},
+    {BK_DEW, ENGI_GRAIN, "OCTAVE DEW"}, {BK_DEW, ENGI_GRAIN, "GLITTER"}, {BK_DEW, ENGI_GRAIN, "PNO RAIN"},
+    {BK_VOICES, ENGI_FORMANT, "AIR CHOIR"}, {BK_VOICES, ENGI_FORMANT, "WHISPER PAD"}, {BK_VOICES, ENGI_FORMANT, "SOUL OOH"},
+    {BK_VOICES, ENGI_FORMANT, "ANGEL AH"}, {BK_VOICES, ENGI_FORMANT, "VOX CHOP"}, {BK_VOICES, ENGI_FORMANT, "HUM"},
+    {BK_VOICES, ENGI_FORMANT, "VOX PAD"}, {BK_VOICES, ENGI_WAVE, "CHOIR WAVE"},
+    {BK_ROOTS, ENGI_ANALOG, "SOFT SUB"}, {BK_ROOTS, ENGI_ANALOG, "FRETLESS"}, {BK_ROOTS, ENGI_ANALOG, "WARM ROOT"},
+    {BK_WEATHER, ENGI_NOISE, "TWIG SNAP"}, {BK_WEATHER, ENGI_NOISE, "LEAF CRUNCH"}, {BK_WEATHER, ENGI_NOISE, "WATER DROP"},
+    {BK_WEATHER, ENGI_NOISE, "BRUSH"}, {BK_WEATHER, ENGI_NOISE, "BREATH"}, {BK_WEATHER, ENGI_NOISE, "KEY CLICK"},
+    {BK_WEATHER, ENGI_NOISE, "FIRE CRACKLE"}, {BK_WEATHER, ENGI_NOISE, "CRICKETS"}, {BK_WEATHER, ENGI_NOISE, "WIND"},
+    {BK_WEATHER, ENGI_NOISE, "RAIN"}, {BK_WEATHER, ENGI_NOISE, "OCEAN"}, {BK_WEATHER, ENGI_NOISE, "VINYL"},
+    {BK_WEATHER, ENGI_PHYS, "HAND DRUM"}, {BK_WEATHER, ENGI_PHYS, "WOOD BLOCK"}, {BK_WEATHER, ENGI_SAMPLE, "GM KIT"},
+    {BK_HYPER, ENGI_ANALOG, "HYPER LEAD"}, {BK_HYPER, ENGI_ANALOG, "SUPERSAW"}, {BK_HYPER, ENGI_ANALOG, "PETAL PLUCK"},
+    {BK_HYPER, ENGI_ANALOG, "GLIDE LEAD"}, {BK_HYPER, ENGI_WAVE, "FLUTE TONE"},
+};
+#else
 enum { BK_BASS, BK_KEYS, BK_ORGAN, BK_PAD, BK_LEAD, BK_PLUCK, BK_STAB, BK_FX };
 static const char *const BANK_KIND[] = {"BASS", "KEYS", "ORGN", "PAD", "LEAD", "PLCK", "STAB", "FX"};
 static const struct { uint8_t kind, e; const char *name; } BANK[] = {
@@ -378,6 +431,7 @@ static const struct { uint8_t kind, e; const char *name; } BANK[] = {
     {BK_FX, ENGI_SLICE, "USR SLICE"},
 #endif
 };
+#endif
 #define NBANK (sizeof BANK / sizeof BANK[0])
 static uint8_t bank_pi[NBANK];                       /* the preset index of each entry in its engine */
 static uint8_t bank_ready;

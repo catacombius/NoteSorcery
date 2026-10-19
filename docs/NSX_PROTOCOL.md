@@ -77,6 +77,7 @@ The feature bits are:
 | 4 | USB audio to the host |
 | 8 | USB audio from the host (live sampling: menu AUDIO → USB SAMPLE, at the next start, with USB SERIAL off) |
 | 16 | the 808 CM / 909 CM circuit kits |
+| 32 | BOTANICA (BOTANICA.md): projects are BTP1 (`Btp1.kt`, 7672 bytes); the reply ends with `B` and G_COUNT; the PERFORM / SKY globals are found by their `DESC` label (BLOOM, DROPS, FOLEY, GLTCH, WTHR, BREEZ, DRIFT, RAMP, BMODE) |
 
 ### Projects: backup objects (v6)
 
