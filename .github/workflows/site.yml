@@ -108,14 +108,57 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build
         working-directory: android/botanica
-        run: ./gradlew --no-daemon :core:test :app:assembleDebug
+        run: |
+          ./gradlew --no-daemon :core:test :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "botanica-garden-$BOTANICA_VERSION-debug.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: botanica-garden-${{ env.BOTANICA_VERSION }}-debug
-          path: android/botanica/app/build/outputs/apk/debug/app-debug.apk
+          path: android/botanica/botanica-garden-${{ env.BOTANICA_VERSION }}-debug.apk
+
+  release:                                   # a manual run (Actions -> site -> Run workflow) publishes BOTANICA's pre-release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: botanica-${{ env.BOTANICA_VERSION }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: botanica-garden-${{ env.BOTANICA_VERSION }}-debug
+          path: dist
+      - name: Release botanica-v${{ env.BOTANICA_VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="botanica-v$BOTANICA_VERSION"
+          cat > notes.md <<EOF_NOTES
+          BOTANICA $BOTANICA_VERSION: a botanica-music firmware for the M-VAVE FM-1, built on NoteSorcery (see BOTANICA.md).
+          Felt piano and droplet engines, foley, BLOOM / WEATHER / GLITCH / BREEZE, tempo drift with BREAK / DROP, petal chords
+          and a GARDEN home screen.
+
+          - **Firmware:** \`botanica-$BOTANICA_VERSION.fwsc\`. Install it with the web installer (the /botanica/ page) or
+            tools/fm1_install.py, as NoteSorcery. Recovery is the FM-1's ROM bootloader, unchanged.
+          - **BOTANICA Garden (Android):** \`botanica-garden-$BOTANICA_VERSION-debug.apk\`, a debug build to sideload.
+          - **Demo renders:** the WAVs, from the host simulator.
+
+          A pre-release: tested in the host simulator and CI only, not yet on an FM-1.
+          EOF_NOTES
+          files=$(find dist -type f \( -name '*.fwsc' -o -name '*.apk' -o -name '*.wav' \) | sort)
+          echo "$files"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $files --clobber
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "BOTANICA $BOTANICA_VERSION" --notes-file notes.md --prerelease $files
+          fi
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
