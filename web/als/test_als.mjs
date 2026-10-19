@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { LAYOUT, buildLiveSetXml, decodeNsp1, exportAls, midiSong, songFromDevice, trackClip } from "./nsals.js";
+import { LAYOUT as LAYOUT_NS, LAYOUT_BOTANICA, buildLiveSetXml, decodeNsp1, exportAls, midiSong, songFromDevice, trackClip } from "./nsals.js";
 
 const dir = process.argv[2] || "build/host/als";
 let bad = 0;
@@ -24,11 +24,12 @@ const check = (ok, what) => {
 const rd = (n) => new Uint8Array(readFileSync(join(dir, n)));
 
 const lay = JSON.parse(readFileSync(join(dir, "layout.json"), "utf8"));
+const LAYOUT = lay.magic === LAYOUT_BOTANICA.magic ? LAYOUT_BOTANICA : LAYOUT_NS;   /* (BOTANICA's: BTP1) */
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 check(lay.magic === LAYOUT.magic && lay.size === LAYOUT.size && ["P_COUNT", "G_COUNT", "NTRK", "NPART", "NSTEP", "NLOCK"].every((k) => lay[k] === LAYOUT[k]) &&
   same(lay.P, LAYOUT.P) && same(lay.G, LAYOUT.G) && same(lay.ENGINES, LAYOUT.ENGINES),
   "the firmware's NSP1 layout, P_ / G_ indices and engines are the exporter's");
-check(lay.offsets.t + lay.NTRK * lay.offsets.trk === lay.offsets.sum && lay.offsets.step === 2 * lay.P_COUNT + 2 &&
+check(((lay.offsets.t + lay.NTRK * lay.offsets.trk + 3) & ~3) === lay.offsets.sum && lay.offsets.step === 2 * lay.P_COUNT + 2 &&
   lay.offsets.micro === lay.offsets.step + 10 * lay.NSTEP, "... and its track record (sound, steps, nudges, locks, fills) as read");
 
 const live = rd("live.nsp1");
@@ -83,7 +84,8 @@ const song = songFromDevice({ working: live, sections: [rd("secA.nsp1"), rd("sec
 check(song.sceneCount === 2 && same(song.sceneNames, ["A", "B"]) && song.tracks.length === 8 && song.tempo === 120 &&
   song.tracks[0].clips[0].lengthBeats === 4 && song.tracks[0].clips[1].lengthBeats === 8 && !song.tracks[7].clips[0],
   "sections A, B: two scenes; the bass 4 beats in A, 32 steps = 8 beats in B; the empty drum track no clip");
-check(/^T1 ACID$/.test(song.tracks[0].name) && /^T2 FM6$/.test(song.tracks[1].name) && song.tracks[6].kind === "drums",
+check(song.tracks[0].name === `T1 ${LAYOUT.ENGINES[decodeNsp1(rd("secA.nsp1")).tracks[0].engine]}` &&
+  (LAYOUT !== LAYOUT_NS || (/^T1 ACID$/.test(song.tracks[0].name) && /^T2 FM6$/.test(song.tracks[1].name))) && song.tracks[6].kind === "drums",
   "track names from the engines; tracks 7 and 8 the drum tracks");
 const xml = buildLiveSetXml(song);
 const count = (re) => (xml.match(re) || []).length;

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Build the firmware, run the host tests, and publish the browser installer and editor on GitHub Pages.
+# Build the firmware (NoteSorcery and its BOTANICA edition), run both host test suites, build the BOTANICA Garden
+# Android app, and publish the browser installers and editors on GitHub Pages (BOTANICA under /botanica/).
 # Pull requests build and test only; a push to main (or a manual run) also deploys the site.
 # One-time setup: Settings -> Pages -> Source: GitHub Actions.
 name: site
@@ -12,6 +13,7 @@ on:
 
 env:
   NS_VERSION: "0.1"                          # the release on the site: identity FM-1_95XY, X.Y one digit each
+  BOTANICA_VERSION: "0.1"                    # BOTANICA's release: identity FM-1_96XY
   SDK_TAG: AC79NN_SDK_V1.2.1_2023-12-13
 
 concurrency:
@@ -21,7 +23,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,12 +69,27 @@ jobs:
         run: bash tests/run_tests.sh
       - name: Release build
         run: bash build.sh --release "$NS_VERSION"
+      - name: BOTANICA build
+        run: bash build.sh --edition botanica
+      - name: BOTANICA host tests
+        run: bash tests/run_tests_botanica.sh
+      - name: BOTANICA release build
+        run: bash build.sh --edition botanica --release "$BOTANICA_VERSION"
       - name: Make the site
-        run: python3 web/make_site.py "build/notesorcery-$NS_VERSION.fwsc" "$NS_VERSION" _site
+        run: |
+          python3 web/make_site.py "build/notesorcery-$NS_VERSION.fwsc" "$NS_VERSION" _site --alt ../../botanica/
+          python3 web/make_site.py "build/botanica/botanica-$BOTANICA_VERSION.fwsc" "$BOTANICA_VERSION" _site/botanica \
+              --edition botanica
       - uses: actions/upload-artifact@v4
         with:
           name: notesorcery-${{ env.NS_VERSION }}
           path: build/notesorcery-${{ env.NS_VERSION }}.fwsc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: botanica-${{ env.BOTANICA_VERSION }}
+          path: |
+            build/botanica/botanica-${{ env.BOTANICA_VERSION }}.fwsc
+            build/botanica/botanica_demo/*.wav
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:

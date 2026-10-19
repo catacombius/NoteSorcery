@@ -79,4 +79,13 @@ run "regression: golden renders of BOTANICA's engines and presets, health, voice
 run "regression: target cost of BOTANICA's render loops" env NS_EDITION=botanica python3 tests/target_budget.py \
     $B/felucca.dis tests/target_budget_botanica.txt
 
+if command -v node >/dev/null 2>&1; then
+    ${CC%% *} -O2 -w -ffp-contract=off -DEDITION_BOTANICA=1 -I$B/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/nsp1_export" \
+        tests/nsp1_export.c -lm && mkdir -p "$OUT/als" && "$OUT/nsp1_export" "$OUT/als" >/dev/null
+    run "Ableton export (web/als) of BTP1 projects: the notes as BOTANICA plays them, sections as scenes" \
+        node web/als/test_als.mjs "$OUT/als"
+else
+    echo "== skip the Ableton export test (no node)"
+fi
+
 [ $fail -eq 0 ] && echo "ALL BOTANICA HOST TESTS PASSED" || { echo "BOTANICA HOST TESTS FAILED"; exit 1; }

@@ -24,6 +24,21 @@ export const LAYOUT = {
   G: { BPM: 0, SWING: 1 },
   ENGINES: ["ANALOG", "TRIO", "FM6", "SAMPLE", "ACID", "WAVE"],
 };
+/* BOTANICA's projects (BTP1: firmware/src/core.h with EDITION_BOTANICA): three more track parameters before P_E0
+ * (STRDIR, HUMAN, RATMODE), nine more globals (the PERFORM / SKY macros), its engines; the steps as NSP1's */
+export const LAYOUT_BOTANICA = {
+  ...LAYOUT,
+  magic: 0x31505442,           /* "BTP1" */
+  size: 7672,
+  P_COUNT: 64, G_COUNT: 43,
+  P: { ...LAYOUT.P, E0: 56 },
+  ENGINES: ["FELT", "DROPLET", "ANALOG", "SAMPLE", "NOISE", "PHYS", "GRAIN", "VOICE", "WAVE"],
+};
+/* the layout of a project's bytes, by its magic (NSP1: NoteSorcery's, BTP1: BOTANICA's) */
+export function layoutOf(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  return b.length >= 4 && (b[0] | b[1] << 8 | b[2] << 16 | b[3] << 24) >>> 0 === LAYOUT_BOTANICA.magic ? LAYOUT_BOTANICA : LAYOUT;
+}
 
 /* the FM-1's scales (params.c N_SCALE, seq.c SCALE_MASK) as Live names them */
 const LIVE_SCALE = ["Chromatic", "Major", "Minor", "Dorian", "Mixolydian", "Major Pentatonic", "Minor Pentatonic",
@@ -50,7 +65,7 @@ function fnv1a(b, n) {
 }
 
 /* ---- NSP1 bytes -> a plain object. Throws on anything that is not a project of this format. */
-export function decodeNsp1(bytes, L = LAYOUT) {
+export function decodeNsp1(bytes, L = layoutOf(bytes)) {
   const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   if (b.length !== L.size) throw new Error(`not an NSP1 project (${b.length} bytes, expected ${L.size})`);
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
@@ -79,8 +94,8 @@ export function decodeNsp1(bytes, L = LAYOUT) {
     o += L.NSTEP / 4;
     tracks.push({ p, engine, preset, raw, micro, locks, fill, drum: t >= L.NPART });
   }
-  if (o !== L.size - 4) throw new Error("NSP1 layout mismatch");
-  return { g, sel, tracks };
+  if (((o + 3) & ~3) !== L.size - 4) throw new Error("NSP1 layout mismatch");   /* (BTP1: 2 bytes of padding before the sum) */
+  return { g, sel, tracks, L };
 }
 
 /* a track's division -> beats per step */
@@ -90,7 +105,7 @@ function stepBeats(div) {
 }
 
 /* ---- one track of a decoded project -> a clip: {lengthBeats, notes: [{pitch, start, duration, velocity}]} */
-export function trackClip(prj, ti, opts = {}, L = LAYOUT) {
+export function trackClip(prj, ti, opts = {}, L = prj.L || LAYOUT) {
   const t = prj.tracks[ti], P = L.P;
   const len = Math.max(1, Math.min(L.NSTEP, t.p[P.SLEN] || 1));
   const div = t.p[P.SDIV], sb = stepBeats(div);
@@ -152,7 +167,7 @@ function levelToGain(lvl) {                       /* LEVEL: 104 = 0 dB, half dB 
 /* ---- the FM-1's song -> a set: { name, tempo, rootNote, scaleName, sceneCount, sceneNames, tracks[] } (the shape
  * of NoteMove's Project). src: { working: NSP1 bytes, sections: [A, B, C, D] (NSP1 bytes or null) }. With sections,
  * each is a scene (A..D); without, the working project is scene 1. */
-export function songFromDevice(src, opts = {}, L = LAYOUT) {
+export function songFromDevice(src, opts = {}, L = layoutOf(src.working || (src.sections || []).find((x) => x))) {
   const scenes = [];
   (src.sections || []).forEach((s, k) => { if (s) scenes.push({ name: "ABCD"[k] || `S${k + 1}`, prj: decodeNsp1(s, L) }); });
   if (!scenes.length || opts.withWorking) {

@@ -52,6 +52,12 @@ On Linux x86-64 the toolchain runs natively and Docker is not needed.
 `./build.sh --release 0.9-beta` makes a release build: the package identity becomes
 `FM-1_909` and the version string `0.9-BETA`; the package is `build/felucca-0.9-beta.fwsc`.
 
+`./build.sh --edition botanica` builds **BOTANICA** ([BOTANICA.md](BOTANICA.md)), NoteSorcery's botanica-music
+edition, from the same tree into `build/botanica/` (generated headers in `build/botanica/gen/`; the generators see
+`NS_EDITION=botanica`). Its identity is `FM-1_9600`, or `FM-1_96XY` for `--release X.Y`, and its release package
+is `build/botanica/botanica-X.Y.fwsc`. In the sources it is `EDITION_BOTANICA` (`firmware/src/core.h`); the default
+build is NoteSorcery's, unchanged by it.
+
 Build options (environment, `0` or `1`; defaults in `firmware/src/felucca.c`):
 
 | Flag | Default | |
@@ -88,12 +94,27 @@ valgrind is installed (exact, about 45 s more); without either it is timed, a ro
 After an intended change of the sound, `GOLDEN_UPDATE=1 sh tests/run_tests.sh` rewrites
 the hashes; `BUDGET_UPDATE=1` does the same for the cost files.
 
+BOTANICA's suite is `tests/run_tests_botanica.sh`, run after `./build.sh --edition botanica`. It covers:
+- the shared tests built with `-DEDITION_BOTANICA=1` (`tests/edition_map.h` maps the engines they name by role onto
+  BOTANICA's);
+- `tests/botanica_test.c` (its engines, macros, chords, DRIFT and stores; it writes demo renders to
+  `build/botanica/botanica_demo/`);
+- its own regression baselines (`tests/golden_botanica.txt`, `tests/cpu_baseline_botanica.txt`,
+  `tests/target_budget_botanica.txt`);
+- the Ableton export of its BTP1 projects.
+
+Its presets and drum kits are levelled into `firmware/src/preset_trim_botanica.h` and
+`tools/drumkit_levels_botanica.json`: run `tools/level_presets.py` and `tools/level_drumkits.py` with
+`NS_EDITION=botanica`.
+
 ## Continuous integration and the install page
 
 `.github/workflows/site.yml` does the same on GitHub: it fetches the toolchain and the three SDK files, builds,
 runs `tests/run_tests.sh`, makes a release build (`NS_VERSION` in the workflow) and keeps its `.fwsc` as a run
-artifact. On `main` it also publishes the installer and editor (`web/make_site.py`) on GitHub Pages, at
-<https://catacombius.github.io/NoteSorcery/> (Settings → Pages → Source: GitHub Actions).
+artifact. It then does the same for BOTANICA (`tests/run_tests_botanica.sh`, `BOTANICA_VERSION`; its `.fwsc` and
+demo renders are a second artifact). On `main` it also publishes the installers and editors (`web/make_site.py`)
+on GitHub Pages, at <https://catacombius.github.io/NoteSorcery/> and BOTANICA's under `/botanica/` (Settings →
+Pages → Source: GitHub Actions).
 
 ## Install
 

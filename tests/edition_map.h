@@ -6,6 +6,7 @@
 #if EDITION_BOTANICA
 #define ENGI_FM6 ENGI_FELT
 #define ENGI_TRIO ENGI_WAVE
+#define ENGI_ACID ENGI_ANALOG         /* (a mono bass: ANALOG) */
 #define FM6_POLY 6               /* (FELT: 6 voices, as FM6) */
 static void fm6_track_loaded(track_t *t) { (void)t; }
 static void fm6_init(void) {}
