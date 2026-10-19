@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (link.state != Link.State.CONNECTED) link.connect()       // (the FM-1 was plugged in)
+        if (link.state != Link.State.CONNECTED && link.state != Link.State.SEARCHING) link.connect()   // (the FM-1 was plugged in)
     }
 
     override fun onDestroy() {

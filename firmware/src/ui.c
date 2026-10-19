@@ -4,7 +4,7 @@
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
 #if EDITION_BOTANICA
-#define FELUCCA_VERSION "BOTANICA 0.1"      /* the botanica-music firmware for the FM-1 (on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BOTANICA 0.2"      /* the botanica-music firmware for the FM-1 (on SLOOP and Felucca) */
 #else
 #define FELUCCA_VERSION "NOTESORCERY 0.1"   /* the groovebox firmware for the FM-1 (based on SLOOP and Felucca) */
 #endif

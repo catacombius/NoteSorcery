@@ -73,7 +73,7 @@ class Link(context: Context) {
     init {
         @Suppress("DEPRECATION")                           // (the Executor overload is API 33)
         mm?.registerDeviceCallback(object : MidiManager.DeviceCallback() {
-            override fun onDeviceAdded(info: MidiDeviceInfo) { if (state == State.IDLE || state == State.ERROR) connect() }
+            override fun onDeviceAdded(info: MidiDeviceInfo) { if (state == State.IDLE) connect() }
             override fun onDeviceRemoved(info: MidiDeviceInfo) {
                 if (midi?.info?.id == info.id) { close(); state = State.IDLE; message = "The FM-1 went away." }
             }
@@ -92,27 +92,41 @@ class Link(context: Context) {
         return p.getString(MidiDeviceInfo.PROPERTY_NAME) ?: p.getString(MidiDeviceInfo.PROPERTY_PRODUCT) ?: "MIDI device ${i.id}"
     }
 
-    /** the MIDI devices that can talk both ways; the FM-1 (by its name) first */
+    /** the MIDI devices that can talk both ways; the FM-1 (by its name, then USB ones) first */
     fun candidates(): List<Pair<MidiDeviceInfo, String>> = allDevices()
         .filter { it.inputPortCount > 0 && it.outputPortCount > 0 }
         .map { it to nameOf(it) }
-        .sortedByDescending { (_, n) -> n.contains("FM-1", true) || n.contains("FM1", true) || n.contains("M-VAVE", true) }
+        .sortedByDescending { (i, n) -> Garden.rankDevice(n, i.type == MidiDeviceInfo.TYPE_USB) }
 
-    /** opens [info] (null: the best candidate) and asks it what it is */
+    /** opens [info] (null: the best candidate) and asks it what it is; one attempt at a time */
     fun connect(info: MidiDeviceInfo? = null) {
         if (mm == null) { state = State.ERROR; message = "This phone has no MIDI support."; return }
+        if (state == State.SEARCHING) return                    // (already opening: plug-in, start and a tap at once)
         val pick = info ?: candidates().firstOrNull()?.first
         if (pick == null) { state = State.IDLE; message = "No MIDI device found. Plug the FM-1 in (USB-C OTG) and try again."; return }
-        close()
+        close()                                                 // (the old ports are shut before the new ones open)
         state = State.SEARCHING
         deviceName = nameOf(pick)
         message = "Opening $deviceName…"
-        mm.openDevice(pick, { dev ->
+        open(pick, 1)
+    }
+
+    /** Android releases a closed port a moment later: a port that is not free yet is tried again, three times */
+    private fun open(pick: MidiDeviceInfo, attempt: Int) {
+        mm!!.openDevice(pick, { dev ->
+            if (state != State.SEARCHING) { dev?.close(); return@openDevice }
             if (dev == null) { state = State.ERROR; message = "Could not open $deviceName."; return@openDevice }
-            midi = dev
             val input = dev.openInputPort(0)
             val output = dev.openOutputPort(0)
-            if (input == null || output == null) { state = State.ERROR; message = "$deviceName is busy (another app?)."; return@openDevice }
+            if (input == null || output == null) {
+                try { input?.close(); output?.close(); dev.close() } catch (_: Exception) { }
+                if (attempt < 3) { main.postDelayed({ if (state == State.SEARCHING) open(pick, attempt + 1) }, 500); return@openDevice }
+                state = State.ERROR
+                message = "$deviceName is in use by another app. Close the web installer or editor tab in Chrome and any " +
+                    "music app, or unplug and plug the FM-1 in again, then tap Connect."
+                return@openDevice
+            }
+            midi = dev
             inPort = input
             outPort = output
             val g = Garden({ b -> synchronized(sendLock) { input.send(b, 0, b.size) } })
@@ -140,11 +154,13 @@ class Link(context: Context) {
 
     /** on the worker: INFO, CAPS, the globals' DESC, WATCH, then the timers */
     private fun hello(g: Garden) {
+        /** (only while [g] is still the link: a reconnect meanwhile makes its replies stale) */
+        fun uiFor(g: Garden, f: () -> Unit) = ui { if (garden === g) f() }
         try {
             val d = g.connect()
-            ui { device = d }
+            uiFor(g) { device = d }
             if (!d.botanica) {
-                ui {
+                uiFor(g) {
                     state = State.NOT_BOTANICA
                     message = "${d.firmware} is not BOTANICA. Install BOTANICA from the web installer (catacombius.github.io/NoteSorcery/botanica), then reconnect."
                 }
@@ -153,7 +169,7 @@ class Link(context: Context) {
             g.watch(true)
             val v = (Garden.PERFORM + Garden.SKY + listOf("BMODE", "RAMP")).filter { g.global(it) != null }.associateWith { g.get(it) }
             refreshTracks()
-            ui {
+            uiFor(g) {
                 values.clear(); values.putAll(v)
                 state = State.CONNECTED
                 message = "${d.firmware} on $deviceName"
@@ -162,7 +178,7 @@ class Link(context: Context) {
             timers.add(io.scheduleWithFixedDelay({ quiet { g.ping() } }, 1, 1, TimeUnit.SECONDS))
             timers.add(io.scheduleWithFixedDelay({ quiet { readTransport(g) } }, 0, 250, TimeUnit.MILLISECONDS))
         } catch (e: Exception) {
-            ui { state = State.ERROR; message = "No answer from $deviceName: ${e.message}" }
+            uiFor(g) { state = State.ERROR; message = "No answer from $deviceName: ${e.message}" }
         }
     }
 
@@ -218,17 +234,16 @@ class Link(context: Context) {
         sendMidi(byteArrayOf(((if (vel > 0) 0x90 else 0x80) or ch).toByte(), note.toByte(), vel.coerceIn(0, 127).toByte()))
     }
 
+    /** shuts the ports and the device at once (the next open needs them free); the FM-1 ends its WATCH by itself */
     fun close() {
         synchronized(timers) { timers.forEach { it.cancel(false) }; timers.clear() }
-        val g = garden
         garden = null
-        val o = outPort; val i = inPort; val m = midi
+        try { outPort?.close() } catch (_: Exception) { }
+        try { inPort?.close() } catch (_: Exception) { }
+        try { midi?.close() } catch (_: Exception) { }
         outPort = null; inPort = null; midi = null
-        io.execute {
-            if (g != null) quiet { g.watch(false) }
-            quiet { o?.close() }; quiet { i?.close() }; quiet { m?.close() }
-        }
         device = null
         tracks = null
+        if (state == State.SEARCHING || state == State.CONNECTED) state = State.IDLE
     }
 }

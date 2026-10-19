@@ -158,8 +158,16 @@ static void draw_menu(void)
         cv_oy = pass ? -124 : 0;
         if (ui.menu == 2) {
             cv_text(4, 4, &FONT_L, FIRMWARE_NAME, C_WHITE);
+#if EDITION_BOTANICA
+            cv_rect(216, 14, 1, 20, TE_COL[1]);           /* a flower on its stem */
+            bot_leaf(217, 26, 1, TE_COL[1]);
+            bot_leaf(215, 21, -1, TE_COL[1]);
+            te_disc(216, 7, 3, TE_COL[0]), te_disc(222, 11, 3, TE_COL[0]), te_disc(210, 11, 3, TE_COL[0]);
+            te_disc(213, 17, 3, TE_COL[0]), te_disc(219, 17, 3, TE_COL[0]), te_disc(216, 12, 2, TE_COL[3]);
+#else
             cv_rect(206, 10, 8, 4, TE_COL[0]), cv_rect(206, 16, 12, 4, TE_COL[1]);   /* the sail */
             cv_rect(206, 22, 16, 4, TE_COL[2]), cv_rect(206, 28, 20, 4, TE_COL[3]);
+#endif
             cv_text(4, 36, &FONT_S, "BASED ON SLOOP + FELUCCA", C_AMB);
             cv_text(4, 54, &FONT_S, FELUCCA_VERSION, C_HI);
             cv_text(236 - text_w(&FONT_S, __DATE__), 54, &FONT_S, __DATE__, C_GRAY);   /* build date */
@@ -197,6 +205,10 @@ static void draw_menu(void)
                 const char *v = mi_value(i, &vc);
                 char k[4] = {'K', (char)('1' + r), 0, 0};
                 cv_rect(4, y + 2, 4, dy - 8, cur ? C_WHITE : TE_COL[r & 3u]);   /* the knob's colour */
+#if EDITION_BOTANICA
+                if (cur)
+                    bot_leaf(8, y + 3, 1, C_WHITE);       /* the row's bar puts out a leaf */
+#endif
                 xv = cv_text(14, y, &FONT_S, k, TE_COL[r & 3u]);
                 cv_text(xv + 6, y, &FONT_S, MI_NAME[i], cur ? C_WHITE : C_GRAY);
                 if (v[0] && text_w(&FONT_L, v) <= 222) {

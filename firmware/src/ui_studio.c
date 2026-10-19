@@ -43,6 +43,9 @@ static const uint16_t TRK_DIM0[NTRK] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86
                                         RGB(8, 66, 74), RGB(86, 30, 56), RGB(86, 32, 8), RGB(56, 74, 10)};
 #endif
 static uint16_t TE_COL[4], TE_MID[4], TE_DIM[4], TRK_COL[NTRK], TRK_MID[NTRK], TRK_DIM[NTRK];
+#if EDITION_BOTANICA
+#include "ui_botanic.c"           /* the botanical marks (leaves, buds, vines) */
+#endif
 static void studio_colors(uint32_t q8)                   /* (gfx.c palette_set) */
 {
     uint32_t k;
@@ -83,6 +86,9 @@ static void te_dial(int32_t cx, int32_t cy, int32_t r, int32_t ratio, uint16_t c
         int32_t co = SINE[(a + 256u) & 1023u], si = SINE[a];
         cv_line(cx, cy, cx + ((co * (r - 4)) >> 15), cy + ((si * (r - 4)) >> 15), C_WHITE);
         te_disc(cx, cy, 2, C_WHITE);
+#if EDITION_BOTANICA
+        te_disc(cx + ((co * (r - 4)) >> 15), cy + ((si * (r - 4)) >> 15), 1, c);   /* the pointer ends in a bud */
+#endif
     }
 }
 static void te_play_icon(int32_t x, int32_t y, int playing)
@@ -126,6 +132,10 @@ static void te_dials(int32_t y0, const char *const lab[4], const char *const val
     if (ui.msg_t) {                                     /* a message: a white bar */
         cv_rect(0, 10, 240, 32, C_WHITE);
         cv_text((240 - text_w(&FONT_S, ui.msg)) / 2, 18, &FONT_S, ui.msg, C_BLACK);
+#if EDITION_BOTANICA
+        bot_sprig(10, 26, 1, TE_MID[1]);                /* a sprig at each end */
+        bot_sprig(229, 26, -1, TE_MID[1]);
+#endif
         cv_blit(0, (uint32_t)y0);
         return;
     }
@@ -212,8 +222,18 @@ static void te_header(const char *title, uint16_t tc, uint32_t *cache)
     } else {
         cv_text(122, 5, &FONT_S, arrangement_enabled ? "song" : "loop", TE_G3);
     }
+#if EDITION_BOTANICA
+    for (k = 0; k < 4u; k++) {                         /* the four beats of the bar: buds, the downbeat a flower */
+        int lit = playing && beat % 4u == k;
+        if (lit && !k)
+            bot_flower5(107, 29, TE_RED, C_WHITE);
+        else
+            te_disc(107 + (int32_t)k * 9, 29, 3, lit ? C_WHITE : TE_G2);
+    }
+#else
     for (k = 0; k < 4u; k++)                           /* the four beats of the bar */
         cv_rect(104 + (int32_t)k * 9, 26, 7, 7, playing && beat % 4u == k ? (k ? C_WHITE : TE_RED) : TE_G2);
+#endif
     if (song.rec) {
         te_disc(224, 12, 8, TE_RED);
         cv_text(176, 4, &FONT_S, "rec", TE_RED);
@@ -224,7 +244,11 @@ static void te_header(const char *title, uint16_t tc, uint32_t *cache)
         if (song.solo)
             cv_text(236 - text_w(&FONT_S, "solo"), 22, &FONT_S, "solo", C_WHITE);
     }
+#if EDITION_BOTANICA
+    bot_vine(39, 240, TE_G1, TE_DIM[1]);               /* the rule: a vine */
+#else
     cv_rect(0, 39, 240, 1, TE_G1);
+#endif
     cv_blit(0, 0);
 }
 

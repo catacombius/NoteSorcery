@@ -10,7 +10,7 @@ The app never writes firmware. Install and update BOTANICA from the web installe
 
 | Screen | What it does |
 |---|---|
-| **Garden** | The device's GARDEN mirrored: a plant per track that flowers on its notes, rain with WEATHER, the sky with the tempo. Below it are two pages of four big faders, coloured like the knobs. **PERFORM** is BLOOM, DROPLETS, FOLEY and GLITCH; **SKY** is WEATHER, BREEZE, DRIFT and FILTER. **FREEZE**, **GLITCH** and **BREAK** act while held (BREAK mutes every track but the selected one and freezes the reverb; letting go is the DROP, at the DRIFT tempo). There is also play / stop. |
+| **Garden** | The device's night GARDEN mirrored: stars and a crescent moon, a plant per track (moonflower, fern, tulip, lavender, dandelion, bluebell, mushrooms, cattails) answering its notes, rain with WEATHER. Below it are two pages of four big faders, coloured like the knobs. **PERFORM** is BLOOM, DROPLETS, FOLEY and GLITCH; **SKY** is WEATHER, BREEZE, DRIFT and FILTER. **FREEZE**, **GLITCH** and **BREAK** act while held (BREAK mutes every track but the selected one and freezes the reverb; letting go is the DROP, at the DRIFT tempo). There is also play / stop. |
 | **Moods** | BOTANICA's sounds grouped as the device's browser groups them: Petals, Canopy, Dew, Voices, Roots, Weather, Hyper. Pick a track, then tap a sound to hear it there. Stars keep favourites on the phone. |
 | **Pads** | Petal chord pads on the selected track's MIDI channel. The top row is ROYAL (IVmaj7 V7 iii7 vi7) or PETAL (IVmaj7 Vadd9 vi9 Iadd9) in any key; the bottom row is MAJ7, MAJ9, ADD9, 6/9 and LYD#11. Strum is 0..80 ms, up, down or random, as the firmware strums. Touch near the top of a pad to play loud, near the bottom to play soft. |
 | **Drift** | A tempo per song section (A..D), the bars a section and the ramp, drawn as a curve. Presets: ARC 72·96·160·80, SLAM 60→160, HALF/DOUBLE 80↔160. With *Follow the song* on, the app sends DRIFT and RAMP a bar ahead of each change while the FM-1 plays, and the firmware makes the ramp on its own clock. |
@@ -35,7 +35,7 @@ cd android/botanica
 ```
 
 The APK is `app/build/outputs/apk/debug/app-debug.apk`. CI builds it on every push (the `android` job in
-`.github/workflows/site.yml`) and uploads it as the `botanica-garden-0.1-debug` artifact. A signed release build
+`.github/workflows/site.yml`) and uploads it as the `botanica-garden-0.2-debug` artifact. A signed release build
 needs your own keystore and is not set up here.
 
 ## Layout
