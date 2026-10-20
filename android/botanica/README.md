@@ -35,7 +35,7 @@ cd android/botanica
 ```
 
 The APK is `app/build/outputs/apk/debug/app-debug.apk`. CI builds it on every push (the `android` job in
-`.github/workflows/site.yml`) and uploads it as the `botanica-garden-0.2-debug` artifact. A signed release build
+`.github/workflows/site.yml`) and uploads it as the `botanica-garden-0.3-debug` artifact. A signed release build
 needs your own keystore and is not set up here.
 
 ## Layout

@@ -13,7 +13,7 @@ on:
 
 env:
   NS_VERSION: "0.1"                          # the release on the site: identity FM-1_95XY, X.Y one digit each
-  BOTANICA_VERSION: "0.2"                    # BOTANICA's release: identity FM-1_96XY
+  BOTANICA_VERSION: "0.3"                    # BOTANICA's release: identity FM-1_96XY
   SDK_TAG: AC79NN_SDK_V1.2.1_2023-12-13
 
 concurrency:

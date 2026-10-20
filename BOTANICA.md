@@ -13,7 +13,7 @@ the browser installer and editor, the Ableton export) with its own engines, pres
 free and open source (GPL-3.0-only), and is built on [SLOOP](https://github.com/isod89/sloop-fm1) and
 [Felucca](https://github.com/hugelton/Felucca).
 
-> **Status: 0.2, early.** It installs and runs on the FM-1, and every feature passes the host test suite
+> **Status: 0.3, early.** It installs and runs on the FM-1, and every feature passes the host test suite
 > (`tests/run_tests_botanica.sh`), but it has had little play on real hardware yet. Back up first, and report
 > anything odd.
 > BOTANICA does not read NoteSorcery's or SLOOP's projects, and they do not read BOTANICA's.
@@ -32,7 +32,7 @@ the rescue steps, which are the same for every edition.
 From source:
 
     bash build.sh --edition botanica                 # build/botanica/felucca.fwsc (identity FM-1_9600)
-    bash build.sh --edition botanica --release 0.2   # build/botanica/botanica-0.2.fwsc (FM-1_9602)
+    bash build.sh --edition botanica --release 0.3   # build/botanica/botanica-0.3.fwsc (FM-1_9603)
     sh tests/run_tests_botanica.sh                   # its host tests, renders and demos
 
 ## The first minute
@@ -51,6 +51,21 @@ mushrooms and cattails.
 
 Tap HOME to leave the GARDEN and reach the TRACKS screen. Tap it again to come back. SELECT steps through the
 other pictures (the scope, spectrum, tape and so on).
+
+The rest of the screens are drawn as a garden too, in pixel art:
+
+- **TRACKS:** each track is a bed of soil with a leaf badge for its number. A step is a seed, a step with notes
+  a sprout, and the step playing blooms. A bee walks along the selected track's bed (the playhead), and the
+  other beds show a grain of pollen there. The level is a vine.
+- **Knobs:** the four dials are flowers. Their seven petals light up with the value, a white dot marks where it
+  is, and a full flower has a white heart.
+- **Pages:** a value's gauge is a vine with a bud at its end, and a flower when full. The engines have plants
+  for icons (FELT a piano key with a sprout, DROPLET a dewdrop on a petal, DRUM an acorn and so on), and so do
+  the moods in the browser (PETALS a flower, CANOPY a tree, DEW a drop, ROOTS a carrot, WEATHER a rain cloud,
+  HYPER a star). The FX sends grow as plants, and the envelope has grass and flowers.
+- **Drums:** hits are pods, empty steps seeds, and the pads are rounded.
+
+`tests/bot_shots.c` renders these screens in the MOSS theme (`build/botanica/host/moss/`) for review.
 
 The six synth tracks power on as dowfi's layers. Play the keys on any of them:
 

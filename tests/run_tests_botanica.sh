@@ -47,6 +47,9 @@ $CC -o "$OUT/punch_test" tests/punch_test.c -lm
 run "punch-in FX: 16 effects, bounded, dry after release" "$OUT/punch_test" "$OUT/punch-fx.wav"
 $CC -o "$OUT/ui_pages_test" tests/ui_pages_test.c -lm
 run "live UI: pages (PERFORM, SKY, FEEL), layers, holds, drums, REC, the mood browser, fuzz" "$OUT/ui_pages_test" "$OUT"
+$CC -o "$OUT/bot_shots" tests/bot_shots.c -lm
+mkdir -p "$OUT/moss"
+run "the screens in BOTANICA's own theme (MOSS), for review: $OUT/moss" "$OUT/bot_shots" "$OUT/moss"
 UBSAN="${CC_UB:-cc} -O1 -w -DEDITION_BOTANICA=1 -fsanitize=integer-divide-by-zero -fno-sanitize-recover=integer-divide-by-zero -I$B/gen -Ifirmware/src -Ifirmware/hal"
 $UBSAN -o "$OUT/ui_pages_ub" tests/ui_pages_test.c -lm && $UBSAN -o "$OUT/botanica_ub" tests/botanica_test.c -lm &&
     $UBSAN -o "$OUT/soak_ub" tests/soak_test.c -lm || fail=1
