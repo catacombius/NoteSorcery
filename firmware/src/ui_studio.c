@@ -11,10 +11,17 @@ static void trk_short_name(uint32_t c, char *b);
 static int on_drum_page(void) { return !ui.home && cur_page()->scope == SC_DRUM; }
 
 /* ---------------------------------------------------------------- style --- */
+#if EDITION_BOTANICA
+#define TE_G1 C_LINE                     /* (BOTANICA: the theme's own greens, MOSS's: tiles) */
+#define TE_G2 C_DIM                      /* empty steps, dial tracks */
+#define TE_G3 C_GRAY                     /* labels */
+#define TE_G4 C_AMB                      /* secondary text */
+#else
 #define TE_G1 RGB(26, 26, 30)            /* tiles */
 #define TE_G2 RGB(54, 54, 60)            /* empty steps, dial tracks */
 #define TE_G3 RGB(118, 118, 126)         /* labels */
 #define TE_G4 RGB(196, 196, 204)         /* secondary text */
+#endif
 #define TE_RED RGB(255, 44, 52)          /* recording, erasing */
 /* (the colours as designed; TE_* / TRK_* are them at the screen's BRIGHT: studio_colors) */
 #if EDITION_BOTANICA
@@ -59,6 +66,9 @@ static void studio_colors(uint32_t q8)                   /* (gfx.c palette_set) 
         TRK_MID[k] = rgb_scale(TRK_MID0[k], q8);
         TRK_DIM[k] = rgb_scale(TRK_DIM0[k], q8);
     }
+#if EDITION_BOTANICA
+    bot_colors(q8);
+#endif
 }
 #define TE_DRUM (TRK_COL[(uint32_t)(TDRUM - trk) % NTRK])
 
@@ -73,6 +83,10 @@ static void te_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c)     /* filled
 /* a dial: a 270-degree ring (lit up to the value), a pointer; ratio 0..1000, -1 = a plain ring */
 static void te_dial(int32_t cx, int32_t cy, int32_t r, int32_t ratio, uint16_t c, uint16_t dim)
 {
+#if EDITION_BOTANICA
+    bot_dial(cx, cy, r, ratio, c, bot_mix(c, dim, 128), dim);   /* BOTANICA: a flower */
+}
+#else
     int32_t i, end = ratio < 0 ? 768 : ratio * 768 / 1000;
     for (i = 0; i <= 768; i += 8) {
         uint32_t a = (uint32_t)(384 + i) & 1023u;
@@ -86,11 +100,9 @@ static void te_dial(int32_t cx, int32_t cy, int32_t r, int32_t ratio, uint16_t c
         int32_t co = SINE[(a + 256u) & 1023u], si = SINE[a];
         cv_line(cx, cy, cx + ((co * (r - 4)) >> 15), cy + ((si * (r - 4)) >> 15), C_WHITE);
         te_disc(cx, cy, 2, C_WHITE);
-#if EDITION_BOTANICA
-        te_disc(cx + ((co * (r - 4)) >> 15), cy + ((si * (r - 4)) >> 15), 1, c);   /* the pointer ends in a bud */
-#endif
     }
 }
+#endif
 static void te_play_icon(int32_t x, int32_t y, int playing)
 {
     int32_t i;
@@ -240,7 +252,17 @@ static void te_header(const char *title, uint16_t tc, uint32_t *cache)
         if (song.g[G_CLOCK] != 0)                       /* the click is on */
             cv_text(168, 22, &FONT_S, "click", TE_G3);
     } else {
+#if EDITION_BOTANICA
+        {   /* (a long kit name: shortened, clear of the loop position) */
+            char tt[16];
+            str_cpy(tt, title, sizeof tt);
+            while (tt[1] && text_w(&FONT_S, tt) > 236 - 162)
+                tt[str_len(tt) - 1u] = 0;
+            cv_text(240 - text_w(&FONT_S, tt) - 4, 5, &FONT_S, tt, tc);
+        }
+#else
         cv_text(240 - text_w(&FONT_S, title) - 4, 5, &FONT_S, title, tc);
+#endif
         if (song.solo)
             cv_text(236 - text_w(&FONT_S, "solo"), 22, &FONT_S, "solo", C_WHITE);
     }
@@ -284,6 +306,60 @@ static void studio_tracks_draw(void)
         if (!ui.force && h == rows[i]) continue;
         rows[i] = h;
         cv_begin(240, 18, C_BLACK);
+#if EDITION_BOTANICA
+        {   /* BOTANICA: a leaf with the number, the steps a bed of seeds and sprouts (a bloom where it plays, the
+             * bee under it), the level a vine */
+            uint32_t n = len < 16u ? len : 16u;
+            uint16_t lt = bot_mix(col, RGB(255, 255, 255), 100), soil = bot_mix(C_BLACK, BOT_SOIL, 170);
+            uint16_t tb[3], ts[3];
+            tb[0] = selected ? TRK_MID[i] : bot_mix(dim, C_BLACK, 110);
+            tb[1] = selected ? col : dim;
+            tb[2] = selected ? lt : TRK_MID[i];
+            ts[0] = silent ? C_DIM : selected ? TRK_MID[i] : dim;
+            ts[1] = silent ? C_GRAY : selected ? col : TRK_MID[i];
+            ts[2] = silent ? C_AMB : selected ? lt : col;
+            bot_badge(1, 1, tb, (char)('1' + i), selected ? C_BLACK : col);
+            cv_text(22, 1, &FONT_S, b, selected ? C_WHITE : TE_G4);
+            cv_rect(88, 11, (int32_t)n * 7 + 1, 5, soil);  /* the bed */
+            for (j = 0; j < n * 7u; j += 3u)
+                cv_pset(89 + (int32_t)j + (int32_t)(j / 3u & 1u), 13 + (int32_t)(j / 3u & 1u), bot_mix(soil, C_BLACK, 110));
+            cv_rect(88, 11, (int32_t)n * 7 + 1, 1, bot_mix(soil, C_GRAY, 60));
+            for (j = 0; j < 16u; j++) {
+                uint32_t p = bank * 16u + j, on = 0;
+                if (len <= 16u || song.playing) {
+                    if (p < len) on = trk_step_on(t, p) ? 2u : 1u;
+                } else {                                /* > 16 and stopped: the whole pattern, folded */
+                    uint32_t a = j * len / 16u, z = (j + 1u) * len / 16u, k;
+                    on = 1;
+                    for (k = a; k < z; k++) if (trk_step_on(t, k)) on = 2;
+                }
+                if (on == 2u && song.playing && p == pos && !silent)
+                    on = 3;
+                bot_bed(90 + (int32_t)j * 7, 3, on, ts);
+                if (song.playing && p == pos) {        /* the bee on the selected track, a grain of pollen on the others */
+                    if (selected)
+                        bot_bee(89 + (int32_t)j * 7, 12);
+                    else
+                        cv_rect(91 + (int32_t)j * 7, 13, 2, 2, BOT_POLLEN);
+                }
+            }
+            if (rec) {
+                bot_pill(206, 2, 32, 14, TE_RED, TE_RED);
+                cv_text(210, 1, &FONT_S, "rec", C_WHITE);
+            } else if (solo) {
+                bot_pill(206, 2, 32, 14, C_WHITE, C_WHITE);
+                cv_text(210, 1, &FONT_S, "slo", C_BLACK);
+            } else if (silent) {
+                cv_text(206, 1, &FONT_S, "mute", TE_G3);
+            } else {
+                int32_t fx = (int32_t)level * 30 / 127;
+                bot_gauge(206, 7, 31, fx, selected ? TRK_MID[i] : C_DIM, selected ? col : C_GRAY,
+                          selected ? col : C_GRAY, level >= 127u);
+            }
+            cv_blit(0, 40 + i * 18);
+            continue;
+        }
+#endif
         cv_rect(2, 1, 16, 16, selected ? col : dim);   /* the track tile */
         {
             char n[2] = {(char)('1' + i), 0};
@@ -410,7 +486,11 @@ static void drum_screen_draw(void)
         char b[8];
         title_sig = sig;
         cv_begin(240, 44, C_BLACK);
+#if EDITION_BOTANICA
+        bot_pill(2, 4, 34, 34, TE_DRUM, bot_mix(TE_DRUM, RGB(255, 255, 255), 120));
+#else
         cv_rect(2, 4, 34, 34, TE_DRUM);
+#endif
         fmt_int(b, (int32_t)kit + 1);
         cv_text(19 - text_w(&FONT_S, b) / 2, 13, &FONT_S, b, C_BLACK);
         cv_text(44, 6, &FONT_L, DRUM_KIT_NAMES[kit], C_WHITE);
@@ -442,7 +522,14 @@ static void drum_screen_draw(void)
                     if (p >= len) continue;
                     c = dstep_has(s, i) ? lvl_col(dstep_lvl(s, i)) : i == drum_lane ? TE_G2 : TE_G1;
                     if (song.playing && p == TDRUM->seq_idx && c == TE_G1) c = TE_G2;
+#if EDITION_BOTANICA
+                    if (dstep_has(s, i))                /* BOTANICA: a hit a pod, an empty step a seed */
+                        bot_pill(12 + (int32_t)j * 14, y, 12, 5, c, bot_mix(c, RGB(255, 255, 255), 120));
+                    else
+                        cv_rect(17 + (int32_t)j * 14, y + 2, 2, 1, c == TE_G1 ? TE_G2 : TE_G3);
+#else
                     cv_rect(12 + (int32_t)j * 14, y, 12, 5, c);
+#endif
                     if (dstep_has(s, i) && dstep_rat(s, i)) {   /* a ratchet: a notch per extra hit */
                         uint32_t r;
                         for (r = 0; r < dstep_rat(s, i); r++)
@@ -457,7 +544,11 @@ static void drum_screen_draw(void)
         } else {                                       /* KIT: 16 pads, lit on each hit */
             for (i = 0; i < DRUM_LANES; i++) {
                 int32_t x = 2 + (int32_t)(i % 4u) * 60, y = (int32_t)(i / 4u) * 25;
+#if EDITION_BOTANICA
+                bot_pill(x, y, 56, 23, pad_lit[i] ? TE_DRUM : TE_G1, pad_lit[i] ? C_WHITE : TE_G2);
+#else
                 cv_rect(x, y, 56, 23, pad_lit[i] ? TE_DRUM : TE_G1);
+#endif
                 te_text_c(x + 28, y + 4, LANE_SHORT[i], pad_lit[i] ? C_BLACK : i == drum_lane ? C_WHITE : TE_G3);
             }
         }

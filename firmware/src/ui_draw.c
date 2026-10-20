@@ -77,11 +77,17 @@ static void draw_head(void)
         cv_text(x + 40, 1, &FONT_S, b, C_HI);
     }
     if (FELUCCA_ICONS) {                              /* the selected track: tape + number */
+#if EDITION_BOTANICA
+        uint16_t tb[3] = {TRK_MID[song.sel % NTRK], TRK_COL[song.sel % NTRK],
+                          bot_mix(TRK_COL[song.sel % NTRK], RGB(255, 255, 255), 100)};
+        bot_badge(162, 2, tb, (char)('1' + song.sel), C_BLACK);   /* the selected track: its leaf */
+#else
         cv_icon(156, 2, ICON_TAPE, C_GRAY);
         b[0] = (char)('1' + song.sel);
         b[1] = 0;
         cv_rect(168, 2, 12, 16, TRK_COL[song.sel % NTRK]);
         cv_text(170, 1, &FONT_S, b, C_BLACK);
+#endif
     } else {
         b[0] = 'T';
         b[1] = (char)('1' + song.sel);
@@ -165,6 +171,9 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         return;
     str_cpy(ui.col[c], key, sizeof ui.col[c]);
     cv_begin(55, Y_SEP_END - Y_LABEL, C_BLACK);         /* x 4..58: the rule at 59 stays */
+#if EDITION_BOTANICA
+    if (!(str_eq(label, "ENG") && bot_icon(0, 0, val)))  /* (the engine: its plant) */
+#endif
     if (FELUCCA_ICONS && icon != ICON_NONE && l[0])
         cv_icon(0, 1, icon, TE_COL[c & 3u]);            /* icon rows 1..10 = the label's cap height */
     cv_text(l[0] ? LABEL_X : 0, 0, &FONT_S, l, C_GRAY);
@@ -173,11 +182,12 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (ratio >= 0) {                                   /* gauge: track, fill, 1 px end line */
         int32_t gy = Y_GAUGE - Y_LABEL;
         fx = ratio * gw / 1000;
+#if EDITION_BOTANICA
+        bot_gauge(0, gy, gw, fx, vc == C_DIM ? C_DIM : TE_MID[c & 3u], vc == C_DIM ? C_GRAY : TE_COL[c & 3u],
+                  vc == C_DIM ? C_HI : vc, ratio >= 1000);   /* a vine, a bud at its end */
+#else
         cv_rect(0, gy + 1, gw, 1, C_LINE);
         cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : TE_DIM[c & 3u]);
-#if EDITION_BOTANICA
-        bot_bud(fx, gy - 1, 2, vc == C_DIM ? C_HI : vc);   /* the end: a bud on its stalk */
-#else
         cv_rect(fx, gy - 1, 1, 5, vc == C_DIM ? C_HI : vc);
 #endif
     }
@@ -216,6 +226,16 @@ static void graph_adsr(const track_t *t, uint16_t c)
         py = EGY(sus * e >> 15);
     }
     cv_line(0, bot + 1, 239, bot + 1, C_LINE);
+#if EDITION_BOTANICA
+    for (i = 4; i < 236; i += 11) {                                     /* BOTANICA: grass on the ground, */
+        cv_pset(i, bot, C_LINE);
+        cv_pset(i + 1, bot - 1 - (i / 11 & 1), C_LINE);
+        cv_pset(i + 2, bot, C_LINE);
+    }
+    bot_flower5(x1, top, c, BOT_POLLEN);                                /* a flower at the peak, a bud where it
+                                                                         * sustains */
+    bot_bud(x3, EGY(sus) - 2, 0, c);
+#endif
 #undef EGY
 }
 
@@ -252,6 +272,31 @@ static void graph_grid(void)
         int32_t y = 1 + (int32_t)r * 12;
         uint32_t len = trk_len(t), muted = t->p[P_MUTE] || (song.solo && !((song.solo >> r) & 1u));
         uint16_t on = muted ? TRK_DIM[r] : TRK_COL[r];
+#if EDITION_BOTANICA
+        {   /* BOTANICA: a row of seeds and sprouts in a bed, a bloom where it plays */
+            uint16_t tint[3] = {muted ? C_DIM : TRK_MID[r], on, bot_mix(on, RGB(255, 255, 255), 100)};
+            int32_t xe = 14 + (int32_t)(len < 16u ? len : 16u) * 13 + 9;
+            bot_pill(2, y + 1, 8, 9, r == song.sel ? C_WHITE : on, r == song.sel ? C_WHITE : tint[2]);
+            cv_rect(12, y + 8, xe - 12 > 220 ? 220 : xe - 12, 2, bot_mix(C_BLACK, BOT_SOIL, 150));
+            for (i = 0; i < 16u; i++) {
+                uint32_t si = bank * 16u + i;
+                int32_t x = 14 + (int32_t)i * 13 + (int32_t)(i / 4u) * 3;
+                if (si >= len)
+                    continue;
+                if (trk_step_on(t, si))
+                    bot_bed(x + 3, y - 2, song.playing && t->seq_idx == si && !muted ? 3u : 2u, tint);
+                else if (!is_drum(t) && t->step[si].time == ST_TIE)
+                    cv_rect(x - 2, y + 7, 15, 1, muted ? C_DIM : TRK_MID[r]);   /* a runner */
+                else
+                    cv_rect(x + 5, y + 8, 1, 1, BOT_P[12]);
+                if (song.playing && t->seq_idx == si) {
+                    cv_rect(x - 1, y - 1, 13, 1, C_WHITE);
+                    cv_rect(x - 1, y + 10, 13, 1, C_WHITE);
+                }
+            }
+            continue;
+        }
+#endif
         cv_rect(2, y, 8, 10, r == song.sel ? C_WHITE : on);
         for (i = 0; i < 16u; i++) {
             uint32_t si = bank * 16u + i;
@@ -339,8 +384,20 @@ static void graph_fx(const track_t *t, uint16_t c)
     for (i = 0; i < 4u; i++) {
         int32_t h = t->p[P_DIST + i] * 80 / 127, x = (int32_t)i * 60 + 28;
         cv_rect(x, 10, 1, 80, C_LINE);
+#if EDITION_BOTANICA
+        {   /* BOTANICA: a plant grown as high as the send, a leaf every 14 px, a flower on top */
+            int32_t y;
+            cv_rect(x, 90 - h, 1, h, TE_MID[i]);
+            for (y = 84; y > 92 - h; y -= 14)
+                bot_leaf(x + ((y / 14) & 1 ? 1 : -1), y, (y / 14) & 1 ? 1 : -1, TE_COL[i]);
+            if (h)
+                bot_flower5(x, 90 - h, c, BOT_POLLEN);
+            cv_rect(x - 6, 90, 13, 1, bot_mix(C_BLACK, BOT_SOIL, 200));
+        }
+#else
         cv_rect(x, 90 - h, 1, h, c);
         cv_rect(x - 3, 90 - h, 7, 1, c);
+#endif
     }
 }
 /* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as
@@ -446,6 +503,9 @@ static void graph_browse(void)
             bot_leaf(4, y + 7, 1, C_WHITE);              /* the cursor: a leaf */
 #else
             cv_rect(4, y + 6, 3, 3, C_WHITE);
+#endif
+#if EDITION_BOTANICA
+        if (e == NENGINES || !bot_icon(24, y + 2, tag))   /* the mood: its plant */
 #endif
         cv_text(14, y, &FONT_S, tag, sel ? C_GRAY : C_DIM);
         cv_text(54, y, &FONT_S, nm, sel ? C_WHITE : C_GRAY);
@@ -838,16 +898,34 @@ static void draw_foot(void)
             const step_t *st = &t->step[si];
             if (si >= (uint32_t)t->p[P_SLEN])
                 continue;
+#if EDITION_BOTANICA
+            if (step_on(st)) {                         /* a sprout, a dot of soil */
+                uint16_t c = TRK_COL[song.sel % NTRK];
+                cv_rect(sx, 5, 1, 6, TRK_MID[song.sel % NTRK]);
+                cv_rect(sx - 2, 4, 2, 1, c);
+                cv_rect(sx + 1, 3, 2, 1, c);
+                cv_pset(sx - 2, 3, c);
+                cv_pset(sx + 2, 2, c);
+            } else {
+                cv_rect(sx, 10, 1, 1, C_DIM);
+            }
+            if ((song.playing && si == t->seq_idx) || (song.seq_mode && si == ui.cursor))
+                bot_flower5(sx, 14, C_WHITE, BOT_POLLEN);
+#else
             if (step_on(st))
                 cv_rect(sx, 2, 2, 9, TRK_COL[song.sel % NTRK]);
             else
                 cv_rect(sx, 10, 1, 1, C_DIM);
             if ((song.playing && si == t->seq_idx) || (song.seq_mode && si == ui.cursor))
                 cv_rect(sx - 1, 13, 3, 3, C_WHITE);
+#endif
         }
     }
     x = 4;
     if (FELUCCA_ICONS) {                              /* row 2: engine icon + name, preset, page */
+#if EDITION_BOTANICA
+        if (!bot_icon(x, 22, ename))                  /* (BOTANICA: the engine's plant) */
+#endif
         cv_icon(x, 21, engine_icon(ename), C_GRAY);
         x += 14;
     }
