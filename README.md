@@ -156,3 +156,5 @@ See [LICENSING.md](LICENSING.md) for the full licensing, including the Felucca A
 ## Licence
 
 GPL-3.0-only, no warranty. See [LICENSE](LICENSE).
+
+You can also try Notesorcery in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
